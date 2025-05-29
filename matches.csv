@@ -1,0 +1,5 @@
+match_id,stage,group_id,round,player1_id,player2_id,scheduled_time,status,winner_id,score
+501,group,1,1,101,102,2025-05-20 10:00:00,completed,101,18-15
+502,group,1,1,103,104,2025-05-20 11:00:00,completed,104,21-17
+503,group,2,1,105,101,2025-05-21 09:30:00,completed,105,22-20
+504,knockout,0,2,104,105,2025-05-22 15:00:00,completed,104,25-23

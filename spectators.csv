@@ -1,0 +1,13 @@
+spectator_id,name,category,wants_live_stream,supported_player,day,payment_amount
+S01,Peter,VIP,No,1004,2025-05-22,500
+S02,Mary,Influencer,Yes,1001,2025-05-22,350
+S03,Kelly,Influencer,Yes,1001,2025-05-22,350
+S04,Helen,General,Yes,1001,2025-05-22,200
+S05,Tommy,VIP,Yes,1001,2025-05-22,500
+S06,John,General,Yes,1004,2025-05-22,200
+S07,Bobby,VIP,Yes,1004,2025-05-22,500
+S08,June,VIP,No,1001,2025-05-22,500
+S09,Ally,General,Yes,1001,2025-05-22,200
+S09,David,Influencer,Yes,1001,2025-05-22,350
+S11,Moon,Influencer,Yes,1003,2025-05-22,350
+S12,Jack,VIP,Yes,1003,2025-05-22,500
