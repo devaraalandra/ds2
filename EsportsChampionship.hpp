@@ -1,35 +1,35 @@
-#ifndef ESPORTSCHAMPIONSHIP_HPP
-#define ESPORTSCHAMPIONSHIP_HPP
+// APUEC_System.h
+#ifndef APUEC_SYSTEM_H
+#define APUEC_SYSTEM_H
 
-// Common Standard Includes
+// Common Standard Includes (No STL Containers like <vector>, <list>, <queue>, <stack>)
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <string>
-#include <cstring>
-#include <cstdlib>
-#include <ctime>
-#include <iomanip>
-#include <limits>
-#include <algorithm> // For std::min (used in Task 4)
-// #include <stdexcept> // For std::stoi, std::stod exceptions (used in Task 4)
+#include <string>    // For std::string (used in Task 4, and by sstream)
+#include <cstring>   // For C-style string functions (e.g., strcpy, strcmp)
+#include <cstdlib>   // For general utilities (e.g., atoi, rand, srand, malloc, free)
+#include <ctime>     // For time functions (e.g., time, localtime, strftime)
+#include <iomanip>   // For I/O manipulators (e.g., setw, setprecision)
+#include <limits>    // For numeric_limits
+#include <algorithm> // For std::min, std::max (if needed, ensure not for containers)
+#include <cstdio>    // For C-style I/O (e.g., printf, scanf, FILE ops from Task 2)
+#include <cctype>    // For character functions (e.g., tolower, isdigit from Task 2)
 
-// Forward declarations
-class Player;
-class Match;
-class Group;
+// Forward declarations if strictly necessary, but full declarations preferred in H for this structure.
+
+// Common Constants
+const int TASK4_MAX_CAPACITY = 100; // Used by Task 4
+
+// Task 1: Match Scheduling - Class Declarations
+class Player; // Forward declaration for Match, Group, PlayerPriorityQueue
+class Match;  // Forward declaration for MatchQueue, Group, Tournament
+class Group;  // Forward declaration for Tournament
+class Tournament;
 class MatchQueue;
 class PlayerPriorityQueue;
-class Tournament;
-
-struct Task4_MatchResult;
-class Task4_Stack;
-class Task4_Queue;
-struct Task4_PlayerStats;
-class Task4_GameResultManager;
 
 
-// Task 1: Match Scheduling
 class Player {
 public:
     Player(int _id, const char* _name, const char* _rank, const char* _registrationType, int _ranking,
@@ -56,7 +56,7 @@ public:
 private:
     int id;
     char name[100];
-    char rank[2];
+    char rank[2]; // e.g. "A", "B"
     char registrationType[30];
     char currentStage[20];
     int wins;
@@ -64,7 +64,7 @@ private:
     int groupId;
     bool registered;
     bool checkedIn;
-    char checkInTime[20];
+    char checkInTime[20]; // Format: YYYY-MM-DD HH:MM
 };
 
 class MatchQueue {
@@ -101,7 +101,7 @@ private:
     };
     Node* head;
     int size;
-    bool isEarlier(const char* time1, const char* time2);
+    bool isEarlier(const char* time1, const char* time2); // Compares "YYYY-MM-DD HH:MM"
 };
 
 class Match {
@@ -110,13 +110,13 @@ public:
     int getId() const;
     Player* getPlayer1() const;
     Player* getPlayer2() const;
-    const char* getStage() const;
+    const char* getStage() const; // "group", "knockout"
     int getGroupId() const;
-    int getRound() const;
-    const char* getStatus() const;
+    int getRound() const; // 1 for semi, 2 for final in group/knockout
+    const char* getStatus() const; // "scheduled", "completed"
     Player* getWinner() const;
-    const char* getScore() const;
-    const char* getScheduledTime() const;
+    const char* getScore() const; // e.g. "1-0"
+    const char* getScheduledTime() const; // Format: YYYY-MM-DD HH:MM
 
     void setStatus(const char* _status);
     void setWinner(Player* _winner);
@@ -124,7 +124,7 @@ private:
     int id;
     Player *player1, *player2;
     char stage[20];
-    int groupId;
+    int groupId; // 0 if not a group match (e.g. overall knockout)
     int round;
     char status[20];
     Player* winner;
@@ -145,10 +145,11 @@ public:
     int getPlayerCount() const;
     Player* getPlayer(int index) const;
 
+
     void addPlayer(Player* player);
     void createSemifinalsOnly(int& nextMatchId);
     void createFinalMatch(int& nextMatchId, Player* semifinal1Winner, Player* semifinal2Winner);
-    Match* getMatch(int index);
+    Match* getMatch(int index); // 0,1 for semis, 2 for final
     int getMatchCount() const;
     void incrementSemiFinalsCompleted();
     bool areSemifinalsComplete();
@@ -157,15 +158,15 @@ public:
 
 private:
     int id;
-    char rankType[2];
-    char registrationType[30];
-    Player* players[4]; // Max 4 players per group
+    char rankType[2]; // "A", "B", etc. This group is for players of this rank.
+    char registrationType[30]; // For this group, if specific.
+    Player* players[4]; // Max 4 players per group for semifinal -> final structure
     int playerCount;
     Match* matches[3]; // 2 semifinals, 1 final
     int matchCount;
     Player* winner;
     bool completed;
-    int semiFinalsCompleted;
+    int semiFinalsCompleted; // Counter for completed semifinal matches
 };
 
 class Tournament {
@@ -173,49 +174,114 @@ public:
     Tournament(int _maxPlayers = 100, int _maxMatches = 200, int _maxGroupWinners = 20);
     ~Tournament();
 
-    void initialize(const char* playerFilename);
+    void initialize(const char* playerFilename); // Loads players, groups them by rank from check-in queue
     void displayCheckInStatus();
-    void createGroupSemifinals();
-    Match* getNextMatch();
-    void updateMatchResult(Match* match, Player* winner);
-    void displayStatus();
-    void runCLI_TASK1();
+    void createGroupSemifinals(); // Creates semifinal matches for all valid groups
+    Match* getNextMatch(); // Gets next match from upcomingMatches queue
+    void updateMatchResult(Match* match, Player* winner); // Updates match, advances stages
+    void displayStatus(); // Displays overall tournament status, group status, upcoming matches
+    void runCLI_TASK1(); // Runs the command-line interface for Task 1
     bool areGroupsCreated() const;
+
 
 private:
     void loadPlayersFromCSV(const char* filename);
-    void groupPlayersByRank();
-    void saveMatchesToCSV(const char* filename);
-    void saveBracketsToCSV(const char* filename);
-    void createKnockoutMatches();
-    void createFinalMatch(Player* finalist1, Player* finalist2);
+    void groupPlayersByRank(); // Groups checked-in players by rank and registration type
+    void saveMatchesToCSV(const char* filename); // Saves all tournament matches
+    void saveBracketsToCSV(const char* filename); // Saves player progression (basic bracket info)
+    void createKnockoutMatches(); // Creates knockout matches from group winners
+    void createFinalMatch(Player* finalist1, Player* finalist2); // Creates the grand final match
 
-    Player** players;
+    Player** players; // Array of all player objects
     int playerCount;
     int maxPlayers;
-    Match** matches;
+    Match** matches; // Array of all match objects created
     int matchCount;
     int maxMatches;
-    Group** groups;
+    Group** groups; // Array of group objects
     int groupCount;
-    Player** groupWinners;
+    Player** groupWinners; // Array of players who won their groups
     int groupWinnerCount;
     int maxGroupWinners;
 
-    MatchQueue upcomingMatches;
-    PlayerPriorityQueue playerCheckInQueue;
+    MatchQueue upcomingMatches; // Queue for matches yet to be played
+    PlayerPriorityQueue playerCheckInQueue; // Priority queue for checked-in players (by check-in time)
 
-    int nextMatchId;
+    int nextMatchId; // For generating unique match IDs
     int totalMatchesPlayed;
     bool groupSemifinalsCreated;
     bool knockoutCreated;
-    bool groupsCreated;
+    bool groupsCreated; // Flag to check if initial grouping is done
 };
 
 
-// Task 4: Result Logging
-const int TASK4_MAX_CAPACITY = 100;
+// Task 2: Player Registration - Struct and Function Declarations
 
+// Forward declaration for Task2_Queue and Task2_PriorityQueue
+struct Task2_Player;
+
+struct Task2_Queue {
+    struct Task2_Player* front;
+    struct Task2_Player* rear;
+    int size;
+
+    void init();
+    int isEmpty();
+    void enqueue(struct Task2_Player* player);
+    struct Task2_Player* dequeue();
+    struct Task2_Player* peek();
+    int getSize();
+    void destroy();
+};
+
+struct Task2_Player {
+    char playerID[10];
+    char playerName[50];
+    int ranking; // Original field, seems unused in task2 logic, defaulted to 0
+    char registrationType[20]; // Early-Bird, Standard, Wildcard, Last-Minute
+    char email[100];
+    int teamID; // Original field, seems unused in task2 logic, defaulted to 0
+    int checkInStatus; // 1 for YES, 0 for NO
+    int group; // Original field, seems unused in task2 logic, defaulted to 0
+    char rank[2]; // A, B, C, D - derived from registrationType
+    char checkInTime[50]; // YYYY-MM-DD HH:MM:SS or "N/A"
+    char status[10]; // MAIN or WAITLIST
+    struct Task2_Player* next; // For linking in the queue
+};
+
+struct Task2_PriorityQueue {
+    struct Task2_Queue earlyBirdQueue;
+    struct Task2_Queue wildcardQueue;
+    struct Task2_Queue standardQueue;
+    struct Task2_Queue lastMinuteQueue;
+    struct Task2_Queue waitlistQueue;
+    int size; // Total in main queues (not waitlist)
+
+    void init();
+    void enqueue(struct Task2_Player* player);
+    struct Task2_Player* dequeue();
+    int isEmpty();
+    int getSize();
+    struct Task2_Queue* getWaitlistQueue();
+    void setWaitlistQueue(struct Task2_Queue* q); // Used for transferring ownership after processing waitlist
+};
+
+// Task 2 Function Prototypes (to be called from the integrated system)
+void Task2_runPlayerRegistrationSystem(); // Main loop for Task 2
+// Internal Task 2 functions (will be defined in .cpp, not necessarily needed in .h if static or only called by Task2_runPlayerRegistrationSystem)
+// void Task2_registerPlayer(Task2_PriorityQueue* pq, const char* filename);
+// void Task2_checkInPlayer(Task2_PriorityQueue* pq, const char* filename);
+// void Task2_handleWithdrawPlayer(Task2_PriorityQueue* pq, const char* filename); // Renamed from handleWithdrawPlayer
+// void Task2_displayWaitlist(Task2_PriorityQueue* pq);
+// void Task2_readPlayersFromCSV(Task2_PriorityQueue* pq, const char* filename);
+// void Task2_writePlayersToCSV(Task2_PriorityQueue* pq, const char* filename);
+
+
+// Task 3: Spectator Management (Placeholder - No specific structs/classes defined for it yet)
+void runTask3_SpectatorManagement();
+
+
+// Task 4: Result Logging - Struct and Class Declarations
 struct Task4_MatchResult {
     int match_id;
     std::string stage;
@@ -228,7 +294,7 @@ struct Task4_MatchResult {
     int winner_id;
     std::string score;
 
-    Task4_MatchResult();
+    Task4_MatchResult(); // Default constructor
     Task4_MatchResult(int mid, const std::string& st, int gid, int r, int p1, int p2,
                       const std::string& sch_time, const std::string& stat, int wid, const std::string& scr);
 };
@@ -239,29 +305,29 @@ public:
     bool push(const Task4_MatchResult& match);
     bool pop(Task4_MatchResult& out);
     bool peek(Task4_MatchResult& out) const;
-    bool getFromTop(int index, Task4_MatchResult& out) const;
+    bool getFromTop(int index, Task4_MatchResult& out) const; // Get element by index from top (0 is top)
     bool isEmpty() const;
     int size() const;
 
 private:
     Task4_MatchResult data[TASK4_MAX_CAPACITY];
-    int top_index;
+    int top_index; // -1 for empty stack
 };
 
-class Task4_Queue {
+class Task4_Queue { // Circular Queue
 public:
     Task4_Queue();
     bool enqueue(const Task4_MatchResult& match);
     bool dequeue(Task4_MatchResult& out);
     bool peek(Task4_MatchResult& out) const;
-    bool getAt(int index, Task4_MatchResult& out) const;
+    bool getAt(int index, Task4_MatchResult& out) const; // Get element by logical index (0 is front)
     bool isEmpty() const;
     int size() const;
 
 private:
     Task4_MatchResult data[TASK4_MAX_CAPACITY];
     int front_index;
-    int rear_index;
+    int rear_index; // Points to the last element
     int current_size;
 };
 
@@ -269,14 +335,14 @@ struct Task4_PlayerStats {
     int player_id;
     std::string name;
     std::string rank;
-    std::string contact;
-    std::string registration_time;
+    std::string contact; // email
+    std::string registration_time; // registration type
     int total_matches;
     int wins;
     int losses;
     double avg_score;
 
-    Task4_PlayerStats();
+    Task4_PlayerStats(); // Default constructor
     Task4_PlayerStats(int pid, const std::string& n, const std::string& r, const std::string& c, const std::string& reg_time);
 };
 
@@ -285,31 +351,34 @@ public:
     Task4_GameResultManager(int max_players = 100);
     ~Task4_GameResultManager();
 
-    bool loadPlayerData(const std::string& filename);
-    bool loadMatchHistory(const std::string& filename);
+    // Public methods for loading data and running the system
+    bool loadPlayerData(const std::string& filename); // Loads from "players.csv" typically
+    bool loadMatchHistory(const std::string& filename); // Loads from "matches.csv" typically
     void displayRecentMatches(int count = 5);
     void displayPlayerStats(int player_id);
     void displayAllPlayerStats();
     void queryMatchesByPlayer(int player_id);
     void queryMatchesByStage(const std::string& stage);
-    void runProgram();
+    void runProgram(); // Main operational loop for Task 4
 
 private:
+    // Helper methods
     std::string extractDateFromScheduledTime(const std::string& scheduled_time);
     void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
-    int findPlayerIndex(int player_id);
-    double parseScore(const std::string& score_str);
+    int findPlayerIndex(int player_id); // Finds index in player_stats array
+    double parseScore(const std::string& score_str); // Parses score like "X-Y", returns X
     void updatePlayerStats(int player_id, bool is_winner, double score);
-    void displayMenu_Task4();
+    void displayMenu_Task4(); // Displays Task 4 specific menu
 
-    Task4_PlayerStats* player_stats;
+    Task4_PlayerStats* player_stats; // Dynamically allocated array of player statistics
     int task4_max_players;
     int current_player_count;
 
-    Task4_Stack recent_matches;
-    Task4_Queue match_history;
+    Task4_Stack recent_matches; // Stores recent matches (e.g., last N matches)
+    Task4_Queue match_history;  // Stores all matches loaded or processed
 
-    int next_match_id;
+    int next_match_id; // Potentially used if new matches were to be logged by this system
 };
 
-#endif // ESPORTSCHAMPIONSHIP_HPP
+
+#endif // APUEC_SYSTEM_H
