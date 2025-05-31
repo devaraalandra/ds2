@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "c:/Users/tempe/OneDrive - Asia Pacific University of Technology And Innovation (APU)/02 Areas/DSTR_Data Structures/DS2",
-      "program": "c:/Users/tempe/OneDrive - Asia Pacific University of Technology And Innovation (APU)/02 Areas/DSTR_Data Structures/DS2/build/Debug/outDebug",
+      "cwd": "c:/Users/tempe/OneDrive - Asia Pacific University of Technology And Innovation (APU)/02 Areas/DSTR_Data Structures/DS2/legacy",
+      "program": "c:/Users/tempe/OneDrive - Asia Pacific University of Technology And Innovation (APU)/02 Areas/DSTR_Data Structures/DS2/legacy/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

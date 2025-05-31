@@ -1,651 +1,858 @@
 #include "task4.hpp"
+#include <iomanip>
+#include <ctime>
 
-// Constructor - Initialize the game result manager with specified capacity
-GameResultManager::GameResultManager(int max_player_capacity) 
-    : max_players(max_player_capacity), current_player_count(0) {
-    // Allocate memory for player statistics array
+// ========================= STACK IMPLEMENTATION =========================
+
+bool Stack::push(const MatchResult& match) {
+    // Check if stack is full
+    if (top_index >= MAX_CAPACITY - 1) {
+        std::cerr << "Warning: Stack is full, cannot add more matches\n";
+        return false;
+    }
+    
+    // Add match to top of stack
+    data[++top_index] = match;
+    return true;
+}
+
+bool Stack::getFromTop(int index, MatchResult& out) const {
+    // Validate index (0 = topmost, 1 = second from top, etc.)
+    if (index < 0 || index > top_index) {
+        return false;
+    }
+    
+    // Retrieve match at specified index from top
+    out = data[top_index - index];
+    return true;
+}
+
+// ========================= QUEUE IMPLEMENTATION =========================
+
+bool Queue::enqueue(const MatchResult& match) {
+    // Check if queue is full
+    if (current_size >= MAX_CAPACITY) {
+        std::cerr << "Warning: Queue is full, cannot add more matches\n";
+        return false;
+    }
+    
+    // Add match to rear of queue (circular array implementation)
+    rear_index = (rear_index + 1) % MAX_CAPACITY;
+    data[rear_index] = match;
+    current_size++;
+    return true;
+}
+
+bool Queue::getAt(int index, MatchResult& out) const {
+    // Validate index
+    if (index < 0 || index >= current_size) {
+        return false;
+    }
+    
+    // Calculate actual array index (circular array)
+    int actual_index = (front_index + index) % MAX_CAPACITY;
+    out = data[actual_index];
+    return true;
+}
+
+// ===================== GAME RESULT MANAGER IMPLEMENTATION =====================
+
+GameResultManager::GameResultManager(int max_players) 
+    : max_players(max_players), current_player_count(0), next_match_id(1) {
+    // Allocate dynamic array for player statistics
     player_stats = new PlayerStats[max_players];
 }
 
-// Destructor - Clean up dynamically allocated memory
 GameResultManager::~GameResultManager() {
+    // Deallocate dynamic memory
     delete[] player_stats;
 }
 
-// Helper function to split CSV line into tokens
-// This handles basic CSV parsing by splitting on commas
-void GameResultManager::splitCSVLine(const std::string& line, std::string tokens[], int max_tokens) {
-    std::stringstream ss(line);
-    std::string token;
-    int index = 0;
+bool GameResultManager::loadPlayerData(const std::string& filename) {
+    std::ifstream file(filename);
     
-    while (std::getline(ss, token, ',') && index < max_tokens) {
-        // Remove leading and trailing whitespace
+    // Check if file can be opened
+    if (!file.is_open()) {
+        std::cerr << "Warning: Cannot open players file '" << filename << "'\n";
+        return false;
+    }
+    
+    std::string line;
+    int loaded_count = 0;
+    bool header_skipped = false;
+    
+    // Read file line by line
+    while (std::getline(file, line) && current_player_count < max_players) {
+        // Skip empty lines
+        if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos) {
+            continue;
+        }
+        
+        // Skip header line (first non-empty line)
+        if (!header_skipped) {
+            header_skipped = true;
+            continue;
+        }
+        
+        // Parse CSV line into tokens - now expecting 6 fields
+        std::string tokens[6];
+        splitCSVLine(line, tokens, 6);
+        
+        // Validate and parse player ID
+        if (tokens[0].empty()) {
+            std::cerr << "Warning: Empty player ID in line: " << line << "\n";
+            continue;
+        }
+        
+        int player_id;
+        try {
+            player_id = std::stoi(tokens[0]);
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: Invalid player ID '" << tokens[0] << "' in line: " << line << "\n";
+            continue;
+        }
+        
+        // Check for duplicate player ID
+        if (findPlayerIndex(player_id) != -1) {
+            std::cerr << "Warning: Duplicate player ID " << player_id << " found, skipping\n";
+            continue;
+        }
+        
+        // Create and store player data with updated field mapping:
+        // tokens[0] = Player ID, tokens[1] = Player Name, tokens[2] = Registration Type, 
+        // tokens[3] = Email, tokens[4] = Rank, tokens[5] = Check-In
+        player_stats[current_player_count] = PlayerStats(
+            player_id, tokens[1], tokens[4], tokens[3], tokens[2]
+        );
+        current_player_count++;
+        loaded_count++;
+    }
+    
+    file.close();
+    std::cout << "Loaded " << loaded_count << " players from " << filename << "\n";
+    return true;
+}
+
+bool GameResultManager::loadMatchHistory(const std::string& filename) {
+    std::ifstream file(filename);
+    
+    // Check if file can be opened
+    if (!file.is_open()) {
+        std::cerr << "Warning: Cannot open matches file '" << filename << "'\n";
+        return false;
+    }
+    
+    std::string line;
+    int loaded_count = 0;
+    bool header_skipped = false;
+    
+    // Read file line by line
+    while (std::getline(file, line)) {
+        // Skip empty lines
+        if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos) {
+            continue;
+        }
+        
+        // Skip header line
+        if (!header_skipped) {
+            header_skipped = true;
+            continue;
+        }
+        
+        // Parse CSV line into tokens
+        std::string tokens[10];
+        splitCSVLine(line, tokens, 10);
+        
+        // Validate required fields
+        if (tokens[0].empty() || tokens[4].empty() || tokens[5].empty()) {
+            std::cerr << "Warning: Missing required fields in line: " << line << "\n";
+            continue;
+        }
+        
+        // Parse and validate numeric fields
+        int match_id, group_id = 0, round = 0, player1_id, player2_id, winner_id = 0;
+        
+        try {
+            match_id = std::stoi(tokens[0]);
+            if (!tokens[2].empty()) group_id = std::stoi(tokens[2]);
+            if (!tokens[3].empty()) round = std::stoi(tokens[3]);
+            player1_id = std::stoi(tokens[4]);
+            player2_id = std::stoi(tokens[5]);
+            if (!tokens[8].empty()) winner_id = std::stoi(tokens[8]);
+            
+            // Update next_match_id to be higher than any existing match ID
+            if (match_id >= next_match_id) {
+                next_match_id = match_id + 1;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: Invalid numeric data in line: " << line << "\n";
+            continue;
+        }
+        
+        // Validate player IDs exist
+        if (findPlayerIndex(player1_id) == -1) {
+            std::cerr << "Warning: Player ID " << player1_id << " not found, skipping match\n";
+            continue;
+        }
+        if (findPlayerIndex(player2_id) == -1) {
+            std::cerr << "Warning: Player ID " << player2_id << " not found, skipping match\n";
+            continue;
+        }
+        
+        // Create match result
+        MatchResult match(match_id, tokens[1], group_id, round, player1_id, 
+                         player2_id, tokens[6], tokens[7], winner_id, tokens[9]);
+        
+        // Add to both data structures
+        match_history.enqueue(match);
+        recent_matches.push(match);
+        
+        // Update player statistics
+        if (winner_id != 0) {
+            updatePlayerStats(player1_id, (winner_id == player1_id), parseScore(tokens[9]));
+            updatePlayerStats(player2_id, (winner_id == player2_id), parseScore(tokens[9]));
+        }
+        
+        loaded_count++;
+    }
+    
+    file.close();
+    std::cout << "Loaded " << loaded_count << " matches from " << filename << "\n";
+    std::cout << "Next available match ID: " << next_match_id << "\n";
+    return true;
+}
+
+void GameResultManager::displayRecentMatches(int count) {
+    std::cout << "\n" << std::string(100, '=') << "\n";
+    std::cout << "                               RECENT MATCHES\n";
+    std::cout << std::string(100, '=') << "\n";
+    
+    if (recent_matches.isEmpty()) {
+        std::cout << "│" << std::setw(98) << std::left << " No recent matches available." << "│\n";
+        std::cout << std::string(100, '=') << "\n";
+        return;
+    }
+    
+    int display_count = std::min(count, recent_matches.size());
+    std::cout << "Showing last " << display_count << " matches:\n";
+    std::cout << std::string(100, '-') << "\n";
+    
+    // Table header
+    std::cout << "│" << std::left << std::setw(8) << " Match" << "│" 
+              << std::setw(12) << " Stage" << "│"
+              << std::setw(25) << " Players" << "│"
+              << std::setw(15) << " Winner" << "│"
+              << std::setw(12) << " Score" << "│"
+              << std::setw(12) << " Date" << "│"
+              << std::setw(12) << " Status" << "│\n";
+    std::cout << "│" << std::string(7, '-') << "│" 
+              << std::string(11, '-') << "│"
+              << std::string(24, '-') << "│"
+              << std::string(14, '-') << "│"
+              << std::string(11, '-') << "│"
+              << std::string(11, '-') << "│"
+              << std::string(11, '-') << "│\n";
+    
+    // Display matches from most recent to oldest
+    for (int i = 0; i < display_count; i++) {
+        MatchResult match;
+        if (recent_matches.getFromTop(i, match)) {
+            // Get player names
+            int p1_index = findPlayerIndex(match.player1_id);
+            int p2_index = findPlayerIndex(match.player2_id);
+            std::string p1_name = (p1_index != -1) ? player_stats[p1_index].name : "ID:" + std::to_string(match.player1_id);
+            std::string p2_name = (p2_index != -1) ? player_stats[p2_index].name : "ID:" + std::to_string(match.player2_id);
+            
+            // Truncate long names
+            if (p1_name.length() > 10) p1_name = p1_name.substr(0, 9) + ".";
+            if (p2_name.length() > 10) p2_name = p2_name.substr(0, 9) + ".";
+            
+            std::string players = p1_name + " vs " + p2_name;
+            if (players.length() > 24) players = players.substr(0, 21) + "...";
+            
+            // Determine winner name
+            std::string winner_name = "Draw";
+            if (match.winner_id != 0) {
+                int winner_index = findPlayerIndex(match.winner_id);
+                winner_name = (winner_index != -1) ? player_stats[winner_index].name : "ID:" + std::to_string(match.winner_id);
+                if (winner_name.length() > 14) winner_name = winner_name.substr(0, 11) + "...";
+            }
+            
+            // Extract date
+            std::string date = extractDateFromScheduledTime(match.scheduled_time);
+            if (date.empty()) date = "Unknown";
+            
+            // Truncate fields to fit table
+            std::string stage = match.stage.length() > 11 ? match.stage.substr(0, 8) + "..." : match.stage;
+            std::string score = match.score.length() > 11 ? match.score.substr(0, 8) + "..." : match.score;
+            std::string status = match.status.length() > 11 ? match.status.substr(0, 8) + "..." : match.status;
+            
+            std::cout << "│" << std::left << std::setw(8) << (" " + std::to_string(match.match_id)) << "│" 
+                      << std::setw(12) << (" " + stage) << "│"
+                      << std::setw(25) << (" " + players) << "│"
+                      << std::setw(15) << (" " + winner_name) << "│"
+                      << std::setw(12) << (" " + score) << "│"
+                      << std::setw(12) << (" " + date) << "│"
+                      << std::setw(12) << (" " + status) << "│\n";
+        }
+    }
+    
+    std::cout << std::string(100, '=') << "\n";
+}
+
+void GameResultManager::displayPlayerStats(int player_id) {
+    int index = findPlayerIndex(player_id);
+    if (index == -1) {
+        std::cout << "\n┌" << std::string(48, '-') << "┐\n";
+        std::cout << "│" << std::setw(48) << std::left << " Player not found." << "│\n";
+        std::cout << "└" << std::string(48, '-') << "┘\n";
+        return;
+    }
+    
+    const PlayerStats& player = player_stats[index];
+    
+    std::cout << "\n┌" << std::string(60, '-') << "┐\n";
+    std::cout << "│" << std::setw(22) << " " << "PLAYER STATISTICS" << std::setw(21) << " " << "│\n";
+    std::cout << "├" << std::string(60, '-') << "┤\n";
+    
+    // Player basic info
+    std::cout << "│ " << std::left << std::setw(18) << "Player ID:" << "│ " << std::setw(38) << std::to_string(player.player_id) << "│\n";
+    std::cout << "│ " << std::left << std::setw(18) << "Name:" << "│ " << std::setw(38) << player.name << "│\n";
+    std::cout << "│ " << std::left << std::setw(18) << "Rank:" << "│ " << std::setw(38) << player.rank << "│\n";
+    std::cout << "│ " << std::left << std::setw(18) << "Contact:" << "│ " << std::setw(38) << player.contact << "│\n";
+    std::cout << "│ " << std::left << std::setw(18) << "Registration:" << "│ " << std::setw(38) << player.registration_time << "│\n";
+    
+    std::cout << "├" << std::string(60, '-') << "┤\n";
+    
+    // Performance statistics
+    std::cout << "│ " << std::left << std::setw(18) << "Total Matches:" << "│ " << std::setw(38) << std::to_string(player.total_matches) << "│\n";
+    std::cout << "│ " << std::left << std::setw(18) << "Wins:" << "│ " << std::setw(38) << std::to_string(player.wins) << "│\n";
+    std::cout << "│ " << std::left << std::setw(18) << "Losses:" << "│ " << std::setw(38) << std::to_string(player.losses) << "│\n";
+    
+    // Calculate and display win rate
+    std::string win_rate_str;
+    if (player.total_matches > 0) {
+        double win_rate = (static_cast<double>(player.wins) / player.total_matches) * 100.0;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(1) << win_rate << "%";
+        win_rate_str = oss.str();
+    } else {
+        win_rate_str = "N/A";
+    }
+    
+    std::cout << "│ " << std::left << std::setw(18) << "Win Rate:" << "│ " << std::setw(38) << win_rate_str << "│\n";
+    
+    std::ostringstream avg_score_oss;
+    avg_score_oss << std::fixed << std::setprecision(2) << player.avg_score;
+    std::cout << "│ " << std::left << std::setw(18) << "Average Score:" << "│ " << std::setw(38) << avg_score_oss.str() << "│\n";
+    
+    std::cout << "└" << std::string(60, '-') << "┘\n";
+}
+
+void GameResultManager::displayAllPlayerStats() {
+    std::cout << "\n" << std::string(95, '=') << "\n";
+    std::cout << "                                ALL PLAYER STATISTICS\n";
+    std::cout << std::string(95, '=') << "\n";
+    
+    if (current_player_count == 0) {
+        std::cout << "│" << std::setw(93) << std::left << " No players loaded." << "│\n";
+        std::cout << std::string(95, '=') << "\n";
+        return;
+    }
+    
+    // Display header
+    std::cout << "┌" << std::string(5, '-') << "┬" << std::string(18, '-') << "┬" 
+              << std::string(12, '-') << "┬" << std::string(10, '-') << "┬"
+              << std::string(8, '-') << "┬" << std::string(10, '-') << "┬"
+              << std::string(12, '-') << "┬" << std::string(12, '-') << "┐\n";
+    
+    std::cout << "│" << std::left << std::setw(5) << " ID" << "│" 
+              << std::setw(18) << " Name" << "│"
+              << std::setw(12) << " Rank" << "│" 
+              << std::setw(10) << " Matches" << "│"
+              << std::setw(8) << " Wins" << "│" 
+              << std::setw(10) << " Losses" << "│"
+              << std::setw(12) << " Win Rate" << "│" 
+              << std::setw(12) << " Avg Score" << "│\n";
+    
+    std::cout << "├" << std::string(5, '-') << "┼" << std::string(18, '-') << "┼" 
+              << std::string(12, '-') << "┼" << std::string(10, '-') << "┼"
+              << std::string(8, '-') << "┼" << std::string(10, '-') << "┼"
+              << std::string(12, '-') << "┼" << std::string(12, '-') << "┤\n";
+    
+    // Display each player's statistics
+    for (int i = 0; i < current_player_count; i++) {
+        const PlayerStats& player = player_stats[i];
+        
+        // Calculate win rate
+        std::string win_rate_str = "N/A";
+        if (player.total_matches > 0) {
+            double win_rate = (static_cast<double>(player.wins) / player.total_matches) * 100.0;
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(1) << win_rate << "%";
+            win_rate_str = oss.str();
+        }
+        
+        // Truncate long names and ranks
+        std::string display_name = player.name.length() > 17 ? player.name.substr(0, 14) + "..." : player.name;
+        std::string display_rank = player.rank.length() > 11 ? player.rank.substr(0, 8) + "..." : player.rank;
+        
+        std::ostringstream avg_score_oss;
+        avg_score_oss << std::fixed << std::setprecision(2) << player.avg_score;
+        
+        std::cout << "│" << std::left << std::setw(5) << (" " + std::to_string(player.player_id)) << "│" 
+                  << std::setw(18) << (" " + display_name) << "│"
+                  << std::setw(12) << (" " + display_rank) << "│"
+                  << std::setw(10) << (" " + std::to_string(player.total_matches)) << "│"
+                  << std::setw(8) << (" " + std::to_string(player.wins)) << "│"
+                  << std::setw(10) << (" " + std::to_string(player.losses)) << "│"
+                  << std::setw(12) << (" " + win_rate_str) << "│"
+                  << std::setw(12) << (" " + avg_score_oss.str()) << "│\n";
+    }
+    
+    std::cout << "└" << std::string(5, '-') << "┴" << std::string(18, '-') << "┴" 
+              << std::string(12, '-') << "┴" << std::string(10, '-') << "┴"
+              << std::string(8, '-') << "┴" << std::string(10, '-') << "┴"
+              << std::string(12, '-') << "┴" << std::string(12, '-') << "┘\n";
+}
+
+void GameResultManager::queryMatchesByPlayer(int player_id) {
+    int player_index = findPlayerIndex(player_id);
+    if (player_index == -1) {
+        std::cout << "\n┌" << std::string(48, '-') << "┐\n";
+        std::cout << "│" << std::setw(48) << std::left << " Player not found." << "│\n";
+        std::cout << "└" << std::string(48, '-') << "┘\n";
+        return;
+    }
+    
+    std::cout << "\n" << std::string(90, '=') << "\n";
+    std::cout << "                           MATCHES FOR PLAYER " << player_id << "\n";
+    std::cout << "                           Player: " << player_stats[player_index].name << "\n";
+    std::cout << std::string(90, '=') << "\n";
+    
+    bool found_matches = false;
+    
+    // Table header
+    std::cout << "┌" << std::string(8, '-') << "┬" << std::string(18, '-') << "┬" 
+              << std::string(12, '-') << "┬" << std::string(10, '-') << "┬"
+              << std::string(12, '-') << "┬" << std::string(12, '-') << "┬"
+              << std::string(12, '-') << "┐\n";
+    
+    std::cout << "│" << std::left << std::setw(8) << " Match" << "│" 
+              << std::setw(18) << " Opponent" << "│"
+              << std::setw(12) << " Stage" << "│" 
+              << std::setw(10) << " Result" << "│"
+              << std::setw(12) << " Score" << "│" 
+              << std::setw(12) << " Date" << "│"
+              << std::setw(12) << " Round" << "│\n";
+    
+    std::cout << "├" << std::string(8, '-') << "┼" << std::string(18, '-') << "┼" 
+              << std::string(12, '-') << "┼" << std::string(10, '-') << "┼"
+              << std::string(12, '-') << "┼" << std::string(12, '-') << "┼"
+              << std::string(12, '-') << "┤\n";
+    
+    // Search through match history
+    for (int i = 0; i < match_history.size(); i++) {
+        MatchResult match;
+        if (match_history.getAt(i, match)) {
+            // Check if player is involved in this match
+            if (match.player1_id == player_id || match.player2_id == player_id) {
+                found_matches = true;
+                
+                // Determine opponent
+                int opponent_id = (match.player1_id == player_id) ? match.player2_id : match.player1_id;
+                int opponent_index = findPlayerIndex(opponent_id);
+                std::string opponent_name = (opponent_index != -1) ? player_stats[opponent_index].name : "ID:" + std::to_string(opponent_id);
+                
+                // Truncate long opponent names
+                if (opponent_name.length() > 17) opponent_name = opponent_name.substr(0, 14) + "...";
+                
+                // Determine result
+                std::string result = "DRAW";
+                if (match.winner_id == player_id) {
+                    result = "WIN";
+                } else if (match.winner_id != 0 && match.winner_id != player_id) {
+                    result = "LOSS";
+                }
+                
+                // Extract date from scheduled time
+                std::string date = extractDateFromScheduledTime(match.scheduled_time);
+                if (date.empty()) date = "Unknown";
+                
+                // Truncate fields to fit table
+                std::string stage = match.stage.length() > 11 ? match.stage.substr(0, 8) + "..." : match.stage;
+                std::string score = match.score.length() > 11 ? match.score.substr(0, 8) + "..." : match.score;
+                
+                std::cout << "│" << std::left << std::setw(8) << (" " + std::to_string(match.match_id)) << "│" 
+                          << std::setw(18) << (" " + opponent_name) << "│"
+                          << std::setw(12) << (" " + stage) << "│"
+                          << std::setw(10) << (" " + result) << "│"
+                          << std::setw(12) << (" " + score) << "│"
+                          << std::setw(12) << (" " + date) << "│"
+                          << std::setw(12) << (" " + std::to_string(match.round)) << "│\n";
+            }
+        }
+    }
+    
+    if (!found_matches) {
+        std::cout << "│" << std::setw(86) << std::left << " No matches found for this player." << "│\n";
+    }
+    
+    std::cout << "└" << std::string(8, '-') << "┴" << std::string(18, '-') << "┴" 
+              << std::string(12, '-') << "┴" << std::string(10, '-') << "┴"
+              << std::string(12, '-') << "┴" << std::string(12, '-') << "┴"
+              << std::string(12, '-') << "┘\n";
+}
+
+void GameResultManager::queryMatchesByStage(const std::string& stage) {
+    std::cout << "\n" << std::string(90, '=') << "\n";
+    std::cout << "                           MATCHES IN STAGE: " << stage << "\n";
+    std::cout << std::string(90, '=') << "\n";
+    
+    bool found_matches = false;
+    
+    // Table header
+    std::cout << "┌" << std::string(8, '-') << "┬" << std::string(25, '-') << "┬" 
+              << std::string(15, '-') << "┬" << std::string(12, '-') << "┬"
+              << std::string(12, '-') << "┬" << std::string(12, '-') << "┐\n";
+    
+    std::cout << "│" << std::left << std::setw(8) << " Match" << "│" 
+              << std::setw(25) << " Players" << "│"
+              << std::setw(15) << " Winner" << "│" 
+              << std::setw(12) << " Score" << "│"
+              << std::setw(12) << " Round" << "│" 
+              << std::setw(12) << " Date" << "│\n";
+    
+    std::cout << "├" << std::string(8, '-') << "┼" << std::string(25, '-') << "┼" 
+              << std::string(15, '-') << "┼" << std::string(12, '-') << "┼"
+              << std::string(12, '-') << "┼" << std::string(12, '-') << "┤\n";
+    
+    // Search through match history
+    for (int i = 0; i < match_history.size(); i++) {
+        MatchResult match;
+        if (match_history.getAt(i, match)) {
+            // Check if match is in the specified stage
+            if (match.stage == stage) {
+                found_matches = true;
+                
+                // Get player names
+                int p1_index = findPlayerIndex(match.player1_id);
+                int p2_index = findPlayerIndex(match.player2_id);
+                std::string p1_name = (p1_index != -1) ? player_stats[p1_index].name : "ID:" + std::to_string(match.player1_id);
+                std::string p2_name = (p2_index != -1) ? player_stats[p2_index].name : "ID:" + std::to_string(match.player2_id);
+                
+                // Truncate long names
+                if (p1_name.length() > 10) p1_name = p1_name.substr(0, 9) + ".";
+                if (p2_name.length() > 10) p2_name = p2_name.substr(0, 9) + ".";
+                
+                std::string players = p1_name + " vs " + p2_name;
+                if (players.length() > 24) players = players.substr(0, 21) + "...";
+                
+                // Determine winner name
+                std::string winner_name = "Draw/None";
+                if (match.winner_id != 0) {
+                    int winner_index = findPlayerIndex(match.winner_id);
+                    winner_name = (winner_index != -1) ? player_stats[winner_index].name : "ID:" + std::to_string(match.winner_id);
+                    if (winner_name.length() > 14) winner_name = winner_name.substr(0, 11) + "...";
+                }
+                
+                // Extract date from scheduled time
+                std::string date = extractDateFromScheduledTime(match.scheduled_time);
+                if (date.empty()) date = "Unknown";
+                
+                // Truncate score if too long
+                std::string score = match.score.length() > 11 ? match.score.substr(0, 8) + "..." : match.score;
+                
+                std::cout << "│" << std::left << std::setw(8) << (" " + std::to_string(match.match_id)) << "│" 
+                          << std::setw(25) << (" " + players) << "│"
+                          << std::setw(15) << (" " + winner_name) << "│"
+                          << std::setw(12) << (" " + score) << "│"
+                          << std::setw(12) << (" " + std::to_string(match.round)) << "│"
+                          << std::setw(12) << (" " + date) << "│\n";
+            }
+        }
+    }
+    
+    if (!found_matches) {
+        std::cout << "│" << std::setw(86) << std::left << " No matches found for this stage." << "│\n";
+    }
+    
+    std::cout << "└" << std::string(8, '-') << "┴" << std::string(25, '-') << "┴" 
+              << std::string(15, '-') << "┴" << std::string(12, '-') << "┴"
+              << std::string(12, '-') << "┴" << std::string(12, '-') << "┘\n";
+}
+
+void GameResultManager::displayMenu() {
+    std::cout << "\n┌" << std::string(60, '=') << "┐\n";
+    std::cout << "│" << std::setw(18) << " " << "APUEC MANAGEMENT SYSTEM" << std::setw(19) << " " << "│\n";
+    std::cout << "│" << std::setw(10) << " " << "Game Result Logging & Performance History" << std::setw(9) << " " << "│\n";
+    std::cout << "├" << std::string(60, '=') << "┤\n";
+    std::cout << "│ 1. Display Recent Matches (Last 5)                         │\n";
+    std::cout << "│ 2. Display All Player Statistics                           │\n";
+    std::cout << "│ 3. Display Specific Player Statistics                      │\n";
+    std::cout << "│ 4. Query Matches by Player                                 │\n";
+    std::cout << "│ 5. Query Matches by Stage                                  │\n";
+    std::cout << "│ 6. Show Data Structure Justification                       │\n";
+    std::cout << "│ 0. Exit                                                    │\n";
+    std::cout << "└" << std::string(60, '=') << "┘\n";
+    std::cout << "Enter your choice: ";
+}
+
+void GameResultManager::runProgram() {
+    // Load initial data
+    std::cout << "=== APUEC Management System Starting ===\n";
+    std::cout << "Loading player data...\n";
+    loadPlayerData("players.csv");
+    std::cout << "Loading match history...\n";
+    loadMatchHistory("matches.csv");
+    std::cout << "System ready!\n";
+    
+    int choice;
+    
+    // Main program loop
+    while (true) {
+        displayMenu();
+        
+        // Input validation for menu choice
+        if (!(std::cin >> choice)) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid input. Please enter a number.\n";
+            continue;
+        }
+        
+        switch (choice) {
+            case 1: {
+                std::cin.ignore(); // Clear newline character
+                displayRecentMatches();
+                break;
+            }
+            
+            case 2: {
+                std::cin.ignore(); // Clear newline character
+                displayAllPlayerStats();
+                break;
+            }
+            
+            case 3: {
+                std::cout << "Enter player ID: ";
+                int player_id;
+                if (std::cin >> player_id) {
+                    std::cin.ignore(); // Clear newline character after reading player ID
+                    displayPlayerStats(player_id);
+                } else {
+                    std::cin.clear();
+                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    std::cout << "Invalid player ID format.\n";
+                }
+                break;
+            }
+            
+            case 4: {
+                std::cout << "Enter player ID: ";
+                int player_id;
+                if (std::cin >> player_id) {
+                    std::cin.ignore(); // Clear newline character after reading player ID
+                    queryMatchesByPlayer(player_id);
+                } else {
+                    std::cin.clear();
+                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    std::cout << "Invalid player ID format.\n";
+                }
+                break;
+            }
+            
+            case 5: {
+                std::cin.ignore(); // Clear newline character first
+                std::cout << "Enter stage name (e.g., group, knockout): ";
+                std::string stage;
+                std::getline(std::cin, stage);
+                queryMatchesByStage(stage);
+                break;
+            }
+            
+            case 6: {
+                std::cin.ignore(); // Clear newline character
+                std::cout << "\n┌" << std::string(70, '=') << "┐\n";
+                std::cout << "│" << std::setw(22) << " " << "DATA STRUCTURE JUSTIFICATION" << std::setw(20) << " " << "│\n";
+                std::cout << "├" << std::string(70, '=') << "┤\n";
+                std::cout << "│ This system uses three carefully chosen data structures:      │\n";
+                std::cout << "├" << std::string(70, '-') << "┤\n";
+                std::cout << "│ 1. STACK for Recent Matches (LIFO - Last In, First Out):     │\n";
+                std::cout << "│    • Provides quick access to the most recent match results   │\n";
+                std::cout << "│    • Perfect for displaying latest tournament activities      │\n";
+                std::cout << "│    • Tournament organizers frequently need recent results     │\n";
+                std::cout << "│    • O(1) insertion and top access for efficiency            │\n";
+                std::cout << "├" << std::string(70, '-') << "┤\n";
+                std::cout << "│ 2. QUEUE for Match History (FIFO - First In, First Out):     │\n";
+                std::cout << "│    • Maintains chronological order of all matches            │\n";
+                std::cout << "│    • Essential for historical analysis and trend tracking    │\n";
+                std::cout << "│    • Supports comprehensive tournament record keeping        │\n";
+                std::cout << "│    • Enables time-based queries and performance evolution    │\n";
+                std::cout << "├" << std::string(70, '-') << "┤\n";
+                std::cout << "│ 3. DYNAMIC ARRAY for Player Statistics:                      │\n";
+                std::cout << "│    • Simple, efficient storage with direct index access      │\n";
+                std::cout << "│    • O(1) access time for player lookups by index           │\n";
+                std::cout << "│    • Memory-efficient with predictable allocation           │\n";
+                std::cout << "│    • Suitable for relatively stable player roster           │\n";
+                std::cout << "├" << std::string(70, '-') << "┤\n";
+                std::cout << "│ These structures work together to provide both immediate      │\n";
+                std::cout << "│ access to recent results and comprehensive historical        │\n";
+                std::cout << "│ analysis capabilities.                                       │\n";
+                std::cout << "└" << std::string(70, '=') << "┘\n";
+                break;
+            }
+            
+            case 0: {
+                std::cout << "Thank you for using APUEC Management System!\n";
+                return;
+            }
+            
+            default: {
+                std::cin.ignore(); // Clear newline character
+                std::cout << "Invalid choice. Please select from 0-6.\n";
+                break;
+            }
+        }
+        
+        // Pause before showing menu again
+        std::cout << "\n--- Please press Enter to return to the main menu ---";
+        std::cin.get();
+    }
+}
+
+// ===================== HELPER FUNCTIONS =====================
+
+std::string GameResultManager::extractDateFromScheduledTime(const std::string& scheduled_time) {
+    // Expected format: "YYYY-MM-DD HH:MM:SS"
+    if (scheduled_time.length() < 10) {
+        return "";
+    }
+    
+    // Check if the first 10 characters match date format pattern
+    std::string date_part = scheduled_time.substr(0, 10);
+    
+    // Basic validation: check for proper format YYYY-MM-DD
+    if (date_part.length() == 10 && date_part[4] == '-' && date_part[7] == '-') {
+        // Additional validation: check if year, month, day are numeric
+        std::string year = date_part.substr(0, 4);
+        std::string month = date_part.substr(5, 2);
+        std::string day = date_part.substr(8, 2);
+        
+        try {
+            int y = std::stoi(year);
+            int m = std::stoi(month);
+            int d = std::stoi(day);
+            
+            // Basic range validation
+            if (y >= 2000 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                return date_part;
+            }
+        } catch (const std::exception& e) {
+            return "";
+        }
+    }
+    
+    return "";
+}
+
+void GameResultManager::splitCSVLine(const std::string& line, std::string tokens[], int max_tokens) {
+    std::istringstream stream(line);
+    std::string token;
+    int count = 0;
+    
+    // Parse CSV line, handling basic comma separation
+    while (std::getline(stream, token, ',') && count < max_tokens) {
+        // Trim whitespace from token
         size_t start = token.find_first_not_of(" \t\r\n");
         size_t end = token.find_last_not_of(" \t\r\n");
         
         if (start != std::string::npos && end != std::string::npos) {
-            tokens[index] = token.substr(start, end - start + 1);
+            tokens[count] = token.substr(start, end - start + 1);
         } else {
-            tokens[index] = "";
+            tokens[count] = "";
         }
-        index++;
+        count++;
     }
     
     // Fill remaining tokens with empty strings
-    while (index < max_tokens) {
-        tokens[index] = "";
-        index++;
+    while (count < max_tokens) {
+        tokens[count] = "";
+        count++;
     }
 }
 
-// Helper function to find player index by player ID
 int GameResultManager::findPlayerIndex(int player_id) {
+    // Linear search through player array
     for (int i = 0; i < current_player_count; i++) {
         if (player_stats[i].player_id == player_id) {
             return i;
         }
     }
-    return -1;  // Player not found
+    return -1; // Player not found
 }
 
-// Helper function to parse score string and extract numeric value
-// Handles various score formats like "3-1", "15-10", "21-19"
 double GameResultManager::parseScore(const std::string& score_str) {
-    if (score_str.empty()) return 0.0;
+    // Find the dash separator
+    size_t dash_pos = score_str.find('-');
+    if (dash_pos == std::string::npos) {
+        return 0.0;
+    }
     
-    // Find the first number in the score string
-    std::stringstream ss(score_str);
-    std::string first_score;
-    std::getline(ss, first_score, '-');
+    // Extract first score (before dash)
+    std::string first_score = score_str.substr(0, dash_pos);
     
+    // Trim whitespace
+    size_t start = first_score.find_first_not_of(" \t");
+    size_t end = first_score.find_last_not_of(" \t");
+    
+    if (start != std::string::npos && end != std::string::npos) {
+        first_score = first_score.substr(start, end - start + 1);
+    }
+    
+    // Convert to double
     try {
         return std::stod(first_score);
-    } catch (...) {
+    } catch (const std::exception& e) {
         return 0.0;
     }
 }
 
-// Helper function to update player statistics based on match result
-void GameResultManager::updatePlayerStats(const MatchResult& match) {
-    // Update statistics for both players involved in the match
-    int player1_index = findPlayerIndex(match.player1_id);
-    int player2_index = findPlayerIndex(match.player2_id);
-    
-    if (player1_index != -1) {
-        player_stats[player1_index].total_matches++;
-        if (match.winner_id == match.player1_id) {
-            player_stats[player1_index].wins++;
-        } else {
-            player_stats[player1_index].losses++;
-        }
-        
-        // Update average score (simple running average)
-        double new_score = parseScore(match.score);
-        int total_matches = player_stats[player1_index].total_matches;
-        player_stats[player1_index].avg_score = 
-            ((player_stats[player1_index].avg_score * (total_matches - 1)) + new_score) / total_matches;
-    }
-    
-    if (player2_index != -1) {
-        player_stats[player2_index].total_matches++;
-        if (match.winner_id == match.player2_id) {
-            player_stats[player2_index].wins++;
-        } else {
-            player_stats[player2_index].losses++;
-        }
-        
-        // Update average score for player 2 (assuming second part of score)
-        std::string score_copy = match.score;
-        size_t dash_pos = score_copy.find('-');
-        double new_score = 0.0;
-        if (dash_pos != std::string::npos && dash_pos + 1 < score_copy.length()) {
-            try {
-                new_score = std::stod(score_copy.substr(dash_pos + 1));
-            } catch (...) {
-                new_score = 0.0;
-            }
-        }
-        
-        int total_matches = player_stats[player2_index].total_matches;
-        player_stats[player2_index].avg_score = 
-            ((player_stats[player2_index].avg_score * (total_matches - 1)) + new_score) / total_matches;
-    }
-}
-
-// Load player data from players.csv file
-// Format: player_id, name, rank, contact, registration_time
-bool GameResultManager::loadPlayerData(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open " << filename << std::endl;
-        return false;
-    }
-    
-    std::string line;
-    current_player_count = 0;
-    
-    // Skip header line
-    if (std::getline(file, line)) {
-        // Process data lines
-        while (std::getline(file, line) && current_player_count < max_players) {
-            if (line.empty()) continue;
-            
-            std::string tokens[5];
-            splitCSVLine(line, tokens, 5);
-            
-            // Parse player data
-            try {
-                int player_id = std::stoi(tokens[0]);
-                std::string name = tokens[1];
-                std::string rank = tokens[2];
-                std::string contact = tokens[3];
-                std::string reg_time = tokens[4];
-                
-                // Create player stats entry
-                player_stats[current_player_count] = PlayerStats(player_id, name, rank, contact, reg_time);
-                current_player_count++;
-            } catch (...) {
-                std::cerr << "Warning: Could not parse player data line: " << line << std::endl;
-            }
-        }
-    }
-    
-    file.close();
-    std::cout << "Loaded " << current_player_count << " players from " << filename << std::endl;
-    return true;
-}
-
-// Load existing matches from matches.csv file
-// Format: match_id, stage, group_id, round, player1_id, player2_id, scheduled_time, status, winner_id, score
-bool GameResultManager::loadMatchHistory(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open " << filename << std::endl;
-        return false;
-    }
-    
-    std::string line;
-    int matches_loaded = 0;
-    
-    // Skip header line
-    if (std::getline(file, line)) {
-        // Process data lines
-        while (std::getline(file, line)) {
-            if (line.empty()) continue;
-            
-            std::string tokens[10];
-            splitCSVLine(line, tokens, 10);
-            
-            // Parse match data
-            try {
-                int match_id = std::stoi(tokens[0]);
-                std::string stage = tokens[1];
-                int group_id = std::stoi(tokens[2]);
-                int round = std::stoi(tokens[3]);
-                int player1_id = std::stoi(tokens[4]);
-                int player2_id = std::stoi(tokens[5]);
-                std::string scheduled_time = tokens[6];
-                std::string status = tokens[7];
-                int winner_id = std::stoi(tokens[8]);
-                std::string score = tokens[9];
-                
-                // Create match result
-                MatchResult match(match_id, stage, group_id, round, player1_id, player2_id,
-                                scheduled_time, status, winner_id, score);
-                
-                // Add to both queue (for history) and stack (for recent access)
-                match_history.enqueue(match);
-                recent_matches.push(match);
-                
-                // Update player statistics
-                updatePlayerStats(match);
-                
-                matches_loaded++;
-            } catch (...) {
-                std::cerr << "Warning: Could not parse match data line: " << line << std::endl;
-            }
-        }
-    }
-    
-    file.close();
-    std::cout << "Loaded " << matches_loaded << " matches from " << filename << std::endl;
-    return true;
-}
-
-// Log a new match result and append to matches.csv
-bool GameResultManager::logMatchResult(const MatchResult& match, const std::string& filename) {
-    // Add to data structures
-    recent_matches.push(match);
-    match_history.enqueue(match);
-    
-    // Update player statistics
-    updatePlayerStats(match);
-    
-    // Append to CSV file
-    std::ofstream file(filename, std::ios::app);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open " << filename << " for writing" << std::endl;
-        return false;
-    }
-    
-    // Write match data in CSV format
-    file << match.match_id << "," << match.stage << "," << match.group_id << ","
-         << match.round << "," << match.player1_id << "," << match.player2_id << ","
-         << match.scheduled_time << "," << match.status << "," << match.winner_id << ","
-         << match.score << std::endl;
-    
-    file.close();
-    std::cout << "Match " << match.match_id << " logged successfully" << std::endl;
-    return true;
-}
-
-// Display the most recent N matches using the Stack data structure
-// Stack is ideal here because we want to see the latest matches first (LIFO order)
-void GameResultManager::displayRecentMatches(int count) {
-    std::cout << "\n=== Recent Matches (Last " << count << ") ===\n";
-    std::cout << std::setfill('-') << std::setw(80) << "" << std::setfill(' ') << std::endl;
-    
-    if (recent_matches.isEmpty()) {
-        std::cout << "No matches available.\n";
-        return;
-    }
-    
-    int stack_size = recent_matches.size();
-    int matches_to_show = (count < stack_size) ? count : stack_size;
-    
-    for (int i = 0; i < matches_to_show; i++) {
-        MatchResult match;
-        if (recent_matches.getFromTop(i, match)) {
-            // Get player names
-            std::string player1_name = "Unknown";
-            std::string player2_name = "Unknown";
-            std::string winner_name = "Unknown";
-            
-            int p1_index = findPlayerIndex(match.player1_id);
-            int p2_index = findPlayerIndex(match.player2_id);
-            int winner_index = findPlayerIndex(match.winner_id);
-            
-            if (p1_index != -1) player1_name = player_stats[p1_index].name;
-            if (p2_index != -1) player2_name = player_stats[p2_index].name;
-            if (winner_index != -1) winner_name = player_stats[winner_index].name;
-            
-            std::cout << "Match ID: " << match.match_id << " | Stage: " << match.stage
-                      << " | Round: " << match.round << std::endl;
-            std::cout << "Players: " << player1_name << " vs " << player2_name << std::endl;
-            std::cout << "Winner: " << winner_name << " | Score: " << match.score
-                      << " | Status: " << match.status << std::endl;
-            std::cout << std::setfill('-') << std::setw(40) << "" << std::setfill(' ') << std::endl;
-        }
-    }
-}
-
-// Display player performance statistics
-void GameResultManager::displayPlayerStats(int player_id) {
+void GameResultManager::updatePlayerStats(int player_id, bool is_winner, double score) {
     int index = findPlayerIndex(player_id);
     if (index == -1) {
-        std::cout << "Player with ID " << player_id << " not found.\n";
-        return;
+        return; // Player not found
     }
     
-    PlayerStats& stats = player_stats[index];
-    std::cout << "\n=== Player Statistics ===\n";
-    std::cout << "Player ID: " << stats.player_id << std::endl;
-    std::cout << "Name: " << stats.name << std::endl;
-    std::cout << "Rank: " << stats.rank << std::endl;
-    std::cout << "Total Matches: " << stats.total_matches << std::endl;
-    std::cout << "Wins: " << stats.wins << std::endl;
-    std::cout << "Losses: " << stats.losses << std::endl;
+    PlayerStats& player = player_stats[index];
     
-    if (stats.total_matches > 0) {
-        double win_rate = (double)stats.wins / stats.total_matches * 100;
-        std::cout << "Win Rate: " << std::fixed << std::setprecision(1) << win_rate << "%" << std::endl;
-    }
+    // Update match count
+    player.total_matches++;
     
-    std::cout << "Average Score: " << std::fixed << std::setprecision(2) << stats.avg_score << std::endl;
-}
-
-// Display all player statistics
-void GameResultManager::displayAllPlayerStats() {
-    std::cout << "\n=== All Player Statistics ===\n";
-    std::cout << std::setfill('-') << std::setw(80) << "" << std::setfill(' ') << std::endl;
-    
-    for (int i = 0; i < current_player_count; i++) {
-        PlayerStats& stats = player_stats[i];
-        if (stats.total_matches > 0) {  // Only show players who have played matches
-            double win_rate = (stats.total_matches > 0) ? (double)stats.wins / stats.total_matches * 100 : 0;
-            
-            std::cout << "ID: " << stats.player_id << " | Name: " << std::setw(15) << stats.name
-                      << " | Matches: " << std::setw(3) << stats.total_matches
-                      << " | W: " << std::setw(2) << stats.wins
-                      << " | L: " << std::setw(2) << stats.losses
-                      << " | Win Rate: " << std::fixed << std::setprecision(1) << std::setw(5) << win_rate << "%"
-                      << " | Avg Score: " << std::fixed << std::setprecision(2) << stats.avg_score << std::endl;
-        }
-    }
-}
-
-// Query matches by player ID using the Queue data structure
-// Queue is ideal for this because it maintains chronological order of matches
-void GameResultManager::queryMatchesByPlayer(int player_id) {
-    std::cout << "\n=== Matches for Player ID " << player_id << " ===\n";
-    std::cout << std::setfill('-') << std::setw(60) << "" << std::setfill(' ') << std::endl;
-    
-    std::string player_name = "Unknown";
-    int player_index = findPlayerIndex(player_id);
-    if (player_index != -1) {
-        player_name = player_stats[player_index].name;
-    }
-    
-    std::cout << "Player: " << player_name << std::endl;
-    std::cout << std::setfill('-') << std::setw(60) << "" << std::setfill(' ') << std::endl;
-    
-    int queue_size = match_history.size();
-    int matches_found = 0;
-    
-    for (int i = 0; i < queue_size; i++) {
-        MatchResult match;
-        if (match_history.getAt(i, match)) {
-            // Check if this match involves the specified player
-            if (match.player1_id == player_id || match.player2_id == player_id) {
-                // Get opponent name
-                int opponent_id = (match.player1_id == player_id) ? match.player2_id : match.player1_id;
-                std::string opponent_name = "Unknown";
-                int opponent_index = findPlayerIndex(opponent_id);
-                if (opponent_index != -1) {
-                    opponent_name = player_stats[opponent_index].name;
-                }
-                
-                std::string result = (match.winner_id == player_id) ? "WIN" : "LOSS";
-                
-                std::cout << "Match " << match.match_id << " | vs " << opponent_name
-                          << " | " << result << " | Score: " << match.score
-                          << " | Stage: " << match.stage << std::endl;
-                matches_found++;
-            }
-        }
-    }
-    
-    if (matches_found == 0) {
-        std::cout << "No matches found for this player.\n";
+    // Update wins/losses
+    if (is_winner) {
+        player.wins++;
     } else {
-        std::cout << "\nTotal matches found: " << matches_found << std::endl;
-    }
-}
-
-// Query matches by stage (e.g., "group", "knockout")
-void GameResultManager::queryMatchesByStage(const std::string& stage) {
-    std::cout << "\n=== Matches in Stage: " << stage << " ===\n";
-    std::cout << std::setfill('-') << std::setw(60) << "" << std::setfill(' ') << std::endl;
-    
-    int queue_size = match_history.size();
-    int matches_found = 0;
-    
-    for (int i = 0; i < queue_size; i++) {
-        MatchResult match;
-        if (match_history.getAt(i, match)) {
-            // Check if this match is in the specified stage
-            if (match.stage == stage) {
-                // Get player names
-                std::string player1_name = "Unknown";
-                std::string player2_name = "Unknown";
-                std::string winner_name = "Unknown";
-                
-                int p1_index = findPlayerIndex(match.player1_id);
-                int p2_index = findPlayerIndex(match.player2_id);
-                int winner_index = findPlayerIndex(match.winner_id);
-                
-                if (p1_index != -1) player1_name = player_stats[p1_index].name;
-                if (p2_index != -1) player2_name = player_stats[p2_index].name;
-                if (winner_index != -1) winner_name = player_stats[winner_index].name;
-                
-                std::cout << "Match " << match.match_id << " | " << player1_name 
-                          << " vs " << player2_name << " | Winner: " << winner_name
-                          << " | Score: " << match.score << " | Round: " << match.round << std::endl;
-                matches_found++;
-            }
-        }
+        player.losses++;
     }
     
-    if (matches_found == 0) {
-        std::cout << "No matches found in stage: " << stage << std::endl;
+    // Update average score using incremental formula
+    // new_avg = ((old_avg * (n-1)) + new_score) / n
+    if (player.total_matches == 1) {
+        player.avg_score = score;
     } else {
-        std::cout << "\nTotal matches found: " << matches_found << std::endl;
+        player.avg_score = ((player.avg_score * (player.total_matches - 1)) + score) / player.total_matches;
     }
 }
 
-// Get total number of matches in history
-int GameResultManager::getTotalMatches() const {
-    return match_history.size();
-}
+// ===================== MAIN FUNCTION =====================
 
-// Get total number of players
-int GameResultManager::getTotalPlayers() const {
-    return current_player_count;
-}
-
-// Create sample CSV files for demonstration
-void GameResultManager::createSampleFiles() {
-    // Create sample players.csv file
-    std::ofstream playersFile("players.csv");
-    if (playersFile.is_open()) {
-        playersFile << "player_id,name,rank,contact,registration_time\n";
-        playersFile << "101,Alice Johnson,Pro,alice@email.com,2025-01-15 09:00:00\n";
-        playersFile << "102,Bob Smith,Amateur,bob@email.com,2025-01-16 10:30:00\n";
-        playersFile << "103,Charlie Brown,Pro,charlie@email.com,2025-01-17 11:15:00\n";
-        playersFile << "104,Diana Prince,Expert,diana@email.com,2025-01-18 14:20:00\n";
-        playersFile << "105,Eve Wilson,Amateur,eve@email.com,2025-01-19 16:45:00\n";
-        playersFile.close();
-        std::cout << "✓ Created sample players.csv file\n";
-    }
-    
-    // Create sample matches.csv file with header
-    std::ofstream matchesFile("matches.csv");
-    if (matchesFile.is_open()) {
-        matchesFile << "match_id,stage,group_id,round,player1_id,player2_id,scheduled_time,status,winner_id,score\n";
-        matchesFile << "501,group,1,1,101,102,2025-05-20 10:00:00,completed,101,18-15\n";
-        matchesFile << "502,group,1,1,103,104,2025-05-20 11:00:00,completed,104,21-17\n";
-        matchesFile << "503,group,2,1,105,101,2025-05-21 09:30:00,completed,105,22-20\n";
-        matchesFile << "504,knockout,0,2,104,105,2025-05-22 15:00:00,completed,104,25-23\n";
-        matchesFile.close();
-        std::cout << "✓ Created sample matches.csv file\n";
-    }
-}
-
-// Function to demonstrate logging a new match
-void GameResultManager::demonstrateMatchLogging() {
-    std::cout << "\n=== Demonstrating Match Logging ===\n";
-    
-    // Sample match results to demonstrate the system
-    MatchResult sample_matches[] = {
-        MatchResult(1001, "group", 1, 1, 101, 102, "2025-05-27 10:00:00", "completed", 101, "21-19"),
-        MatchResult(1002, "group", 1, 1, 103, 104, "2025-05-27 11:00:00", "completed", 104, "15-21"),
-        MatchResult(1003, "knockout", 0, 2, 101, 104, "2025-05-27 14:00:00", "completed", 101, "25-18")
-    };
-    
-    std::cout << "Logging 3 sample match results...\n";
-    
-    for (int i = 0; i < 3; i++) {
-        if (logMatchResult(sample_matches[i], "matches.csv")) {
-            std::cout << "✓ Successfully logged match " << sample_matches[i].match_id << std::endl;
-        } else {
-            std::cout << "✗ Failed to log match " << sample_matches[i].match_id << std::endl;
-        }
-    }
-    
-    std::cout << "\nMatch logging demonstration completed!\n";
-}
-
-// Function to display menu options
-void GameResultManager::displayMenu() {
-    std::cout << "\n=== Esports Championship Management System ===\n";
-    std::cout << "=== Game Result Logging & Performance History ===\n";
-    std::cout << "1. Display Recent Matches (Last 5)\n";
-    std::cout << "2. Display All Player Statistics\n";
-    std::cout << "3. Display Specific Player Statistics\n";
-    std::cout << "4. Query Matches for a Player\n";
-    std::cout << "5. Query Matches by Stage\n";
-    std::cout << "6. Log New Match Result\n";
-    std::cout << "7. Display System Information\n";
-    std::cout << "0. Exit\n";
-    std::cout << "Choose an option: ";
-}
-
-// Main program execution
-void GameResultManager::runProgram() {
-    std::cout << "=== Asia Pacific University Esports Championship Management System ===\n";
-    std::cout << "=== Task 4: Game Result Logging & Performance History ===\n\n";
-    
-    // Create sample data files for demonstration
-    std::cout << "Creating sample data files...\n";
-    createSampleFiles();
-    
-    // Load player data and match history
-    std::cout << "\nLoading existing data...\n";
-    if (!loadPlayerData("players.csv")) {
-        std::cerr << "Failed to load player data. Creating empty player set.\n";
-    }
-    
-    if (!loadMatchHistory("matches.csv")) {
-        std::cerr << "Failed to load match history. Starting with empty history.\n";
-    }
-    
-    // Demonstrate the system with sample data
-    std::cout << "\n=== System Demonstration ===\n";
-    
-    // 1. Display initial system status
-    std::cout << "\n1. Initial System Status:\n";
-    std::cout << "   Total Players: " << getTotalPlayers() << std::endl;
-    std::cout << "   Total Matches: " << getTotalMatches() << std::endl;
-    
-    // 2. Demonstrate match logging
-    std::cout << "\n2. Logging new match results...\n";
-    demonstrateMatchLogging();
-    
-    // 3. Display recent matches (demonstrates Stack usage)
-    std::cout << "\n3. Displaying recent matches (Stack demonstration):\n";
-    std::cout << "   Using Stack data structure for quick access to latest matches:\n";
-    displayRecentMatches(5);
-    
-    // 4. Display player performance statistics
-    std::cout << "\n4. Player Performance Statistics (Array-based structure):\n";
-    displayAllPlayerStats();
-    
-    // 5. Query matches by specific player (demonstrates Queue usage)
-    std::cout << "\n5. Querying matches for specific players (Queue demonstration):\n";
-    std::cout << "   Using Queue data structure to maintain chronological order:\n";
-    queryMatchesByPlayer(101);  // Alice Johnson
-    queryMatchesByPlayer(104);  // Diana Prince
-    
-    // 6. Query matches by stage
-    std::cout << "\n6. Querying matches by stage:\n";
-    queryMatchesByStage("group");
-    queryMatchesByStage("knockout");
-    
-    // Interactive menu for further exploration
-    int choice;
-    do {
-        displayMenu();
-        std::cin >> choice;
-        
-        switch (choice) {
-            case 1: {
-                displayRecentMatches(5);
-                break;
-            }
-            case 2: {
-                displayAllPlayerStats();
-                break;
-            }
-            case 3: {
-                int player_id;
-                std::cout << "Enter Player ID: ";
-                std::cin >> player_id;
-                displayPlayerStats(player_id);
-                break;
-            }
-            case 4: {
-                int player_id;
-                std::cout << "Enter Player ID: ";
-                std::cin >> player_id;
-                queryMatchesByPlayer(player_id);
-                break;
-            }
-            case 5: {
-                std::string stage;
-                std::cout << "Enter Stage (group/knockout): ";
-                std::cin >> stage;
-                queryMatchesByStage(stage);
-                break;
-            }
-            case 6: {
-                // Interactive match logging
-                MatchResult new_match;
-                std::cout << "Enter Match Details:\n";
-                std::cout << "Match ID: ";
-                std::cin >> new_match.match_id;
-                std::cout << "Stage: ";
-                std::cin >> new_match.stage;
-                std::cout << "Group ID: ";
-                std::cin >> new_match.group_id;
-                std::cout << "Round: ";
-                std::cin >> new_match.round;
-                std::cout << "Player 1 ID: ";
-                std::cin >> new_match.player1_id;
-                std::cout << "Player 2 ID: ";
-                std::cin >> new_match.player2_id;
-                std::cout << "Winner ID: ";
-                std::cin >> new_match.winner_id;
-                std::cout << "Score (format: X-Y): ";
-                std::cin >> new_match.score;
-                
-                new_match.scheduled_time = "2025-05-27 12:00:00";
-                new_match.status = "completed";
-                
-                if (logMatchResult(new_match, "matches.csv")) {
-                    std::cout << "Match logged successfully!\n";
-                } else {
-                    std::cout << "Failed to log match.\n";
-                }
-                break;
-            }            
-            case 7: {
-                std::cout << "\n=== System Information ===\n";
-                std::cout << "Data Structures Used:\n";
-                std::cout << "• Stack: Stores recent match results for quick access (LIFO)\n";
-                std::cout << "  - Justification: Latest matches are most relevant for review\n";
-                std::cout << "  - Operations: push(), pop(), peek(), getFromTop()\n";
-                std::cout << "• Queue: Maintains chronological match history (FIFO)\n";
-                std::cout << "  - Justification: Preserves tournament timeline for analysis\n";
-                std::cout << "  - Operations: enqueue(), dequeue(), getAt()\n";
-                std::cout << "• Array: Stores player statistics for efficient lookup\n";
-                std::cout << "  - Justification: Direct access by player index\n";
-                std::cout << "  - Features: Wins, losses, average score tracking\n\n";
-                
-                std::cout << "File Management:\n";
-                std::cout << "• matches.csv: Match results storage and retrieval\n";
-                std::cout << "• players.csv: Player data and performance mapping\n\n";
-                
-                std::cout << "Current Status:\n";
-                std::cout << "• Total Players: " << getTotalPlayers() << std::endl;
-                std::cout << "• Total Matches: " << getTotalMatches() << std::endl;
-                break;
-            }
-            case 0: {
-                std::cout << "Exiting system. Thank you!\n";
-                break;
-            }
-            default: {
-                std::cout << "Invalid option. Please try again.\n";
-                break;
-            }
-        }
-    } while (choice != 0);
-}
-
-// Main function
 int main() {
-    GameResultManager manager(100);  // Support up to 100 players
+    // Initialize the game result manager with capacity for 100 players
+    GameResultManager manager(100);
+    
+    // Run the main program
     manager.runProgram();
+    
     return 0;
 }

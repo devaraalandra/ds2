@@ -1,266 +1,279 @@
-#ifndef GAMERESULTMANAGER_HPP
-#define GAMERESULTMANAGER_HPP
+#ifndef TASK4_HPP
+#define TASK4_HPP
 
-#include <string>
-#include <fstream>
 #include <iostream>
+#include <fstream>
 #include <sstream>
-#include <iomanip>
+#include <string>
+#include <limits>
 
-// Structure to represent a match result
-struct MatchResult {
-    int match_id;
-    std::string stage;
-    int group_id;
-    int round;
-    int player1_id;
-    int player2_id;
-    std::string scheduled_time;
-    std::string status;
-    int winner_id;
-    std::string score;
-    
-    // Default constructor
-    MatchResult() : match_id(0), group_id(0), round(0), player1_id(0), 
-                   player2_id(0), winner_id(0) {}
-    
-    // Parameterized constructor
-    MatchResult(int mid, const std::string& st, int gid, int r, int p1, int p2,
-                const std::string& sched_time, const std::string& stat, int winner, const std::string& sc)
-        : match_id(mid), stage(st), group_id(gid), round(r), player1_id(p1), 
-          player2_id(p2), scheduled_time(sched_time), status(stat), winner_id(winner), score(sc) {}
-};
-
-// Structure to represent player statistics
+/**
+ * Structure to store player statistics and information
+ * Contains all relevant player data including performance metrics
+ */
 struct PlayerStats {
-    int player_id;
-    std::string name;
-    std::string rank;
-    std::string contact;
-    std::string registration_time;
-    int wins;
-    int losses;
-    int total_matches;
-    double avg_score;
+    int player_id;              // Unique player identifier
+    std::string name;           // Player's full name
+    std::string rank;           // Player's current rank/level
+    std::string contact;        // Contact information (email/phone)
+    std::string registration_time;  // When player registered
+    int total_matches;          // Total number of matches played
+    int wins;                   // Number of wins
+    int losses;                 // Number of losses
+    double avg_score;           // Average score across all matches
     
-    // Default constructor
-    PlayerStats() : player_id(0), wins(0), losses(0), total_matches(0), avg_score(0.0) {}
+    // Default constructor initializes all fields with appropriate default values
+    PlayerStats() : player_id(0), name(""), rank(""), contact(""), 
+                   registration_time(""), total_matches(0), wins(0), 
+                   losses(0), avg_score(0.0) {}
     
-    // Parameterized constructor
-    PlayerStats(int pid, const std::string& n, const std::string& r, const std::string& cont, 
-                const std::string& reg_time)
-        : player_id(pid), name(n), rank(r), contact(cont), registration_time(reg_time),
-          wins(0), losses(0), total_matches(0), avg_score(0.0) {}
+    // Parameterized constructor for easy initialization
+    PlayerStats(int id, const std::string& n, const std::string& r, 
+               const std::string& c, const std::string& reg_time)
+        : player_id(id), name(n), rank(r), contact(c), 
+          registration_time(reg_time), total_matches(0), wins(0), 
+          losses(0), avg_score(0.0) {}
 };
 
-// Custom Stack implementation for storing recent match results
-// Stack is chosen because we need quick access to the most recent matches (LIFO - Last In, First Out)
-// This allows us to efficiently display the latest 5 matches without traversing the entire history
-template<typename T>
-class ResultStack {
-private:
-    static const int MAX_SIZE = 100;  // Maximum capacity for the stack
-    T data[MAX_SIZE];                 // Array to store stack elements
-    int top_index;                    // Index of the top element
+/**
+ * Structure to store match result information
+ * Contains all details about a single match
+ */
+struct MatchResult {
+    int match_id;               // Unique match identifier
+    std::string stage;          // Tournament stage (group, knockout, etc.)
+    int group_id;              // Group identifier (0 if not applicable)
+    int round;                 // Round number within stage
+    int player1_id;            // First player's ID
+    int player2_id;            // Second player's ID
+    std::string scheduled_time; // Match scheduled time (YYYY-MM-DD HH:MM:SS)
+    std::string status;         // Match status (completed, pending, etc.)
+    int winner_id;             // Winner's player ID (0 for draw/no winner)
+    std::string score;         // Match score in format "X-Y"
     
+    // Default constructor
+    MatchResult() : match_id(0), stage(""), group_id(0), round(0),
+                   player1_id(0), player2_id(0), scheduled_time(""),
+                   status(""), winner_id(0), score("") {}
+    
+    // Parameterized constructor for easy match creation
+    MatchResult(int m_id, const std::string& st, int g_id, int rd,
+               int p1_id, int p2_id, const std::string& sched_time,
+               const std::string& stat, int win_id, const std::string& sc)
+        : match_id(m_id), stage(st), group_id(g_id), round(rd),
+          player1_id(p1_id), player2_id(p2_id), scheduled_time(sched_time),
+          status(stat), winner_id(win_id), score(sc) {}
+};
+
+/**
+ * Stack class for storing recent match results (LIFO - Last In, First Out)
+ * Provides quick access to the most recent matches for immediate review
+ */
+class Stack {
+private:
+    static const int MAX_CAPACITY = 1000;  // Maximum stack capacity
+    MatchResult data[MAX_CAPACITY];        // Fixed-size array for storage
+    int top_index;                         // Index of top element (-1 when empty)
+
 public:
     // Constructor initializes empty stack
-    ResultStack() : top_index(-1) {}
+    Stack() : top_index(-1) {}
     
-    // Check if stack is empty
-    bool isEmpty() const {
-        return top_index == -1;
-    }
+    /**
+     * Add a match result to the top of the stack
+     * @param match The match result to add
+     * @return true if successful, false if stack is full
+     */
+    bool push(const MatchResult& match);
     
-    // Check if stack is full
-    bool isFull() const {
-        return top_index == MAX_SIZE - 1;
-    }
+    /**
+     * Retrieve the i-th match from the top without removing it
+     * @param index 0-based index from top (0 = topmost element)
+     * @param out Reference to store the retrieved match
+     * @return true if successful, false if index is invalid
+     */
+    bool getFromTop(int index, MatchResult& out) const;
     
-    // Push element onto stack (add to top)
-    bool push(const T& item) {
-        if (isFull()) {
-            return false;  // Stack overflow
-        }
-        data[++top_index] = item;
-        return true;
-    }
+    /**
+     * Get the current number of matches in the stack
+     * @return Number of matches stored
+     */
+    int size() const { return top_index + 1; }
     
-    // Pop element from stack (remove from top)
-    bool pop(T& item) {
-        if (isEmpty()) {
-            return false;  // Stack underflow
-        }
-        item = data[top_index--];
-        return true;
-    }
-    
-    // Peek at top element without removing it
-    bool peek(T& item) const {
-        if (isEmpty()) {
-            return false;
-        }
-        item = data[top_index];
-        return true;
-    }
-    
-    // Get current size of stack
-    int size() const {
-        return top_index + 1;
-    }
-    
-    // Get element at specific index from top
-    bool getFromTop(int index, T& item) const {
-        if (index < 0 || index > top_index) {
-            return false;
-        }
-        item = data[top_index - index];
-        return true;
-    }
+    /**
+     * Check if the stack is empty
+     * @return true if empty, false otherwise
+     */
+    bool isEmpty() const { return top_index == -1; }
 };
 
-// Custom Queue implementation for maintaining chronological match history
-// Queue is chosen because we need to maintain matches in chronological order (FIFO - First In, First Out)
-// This preserves the timeline of matches for historical analysis and tournament progression tracking
-template<typename T>
-class HistoryQueue {
+/**
+ * Queue class for storing match history (FIFO - First In, First Out)
+ * Maintains chronological order of all matches for historical analysis
+ */
+class Queue {
 private:
-    static const int MAX_SIZE = 1000;  // Maximum capacity for the queue
-    T data[MAX_SIZE];                  // Array to store queue elements
-    int front_index;                   // Index of the front element
-    int rear_index;                    // Index of the rear element
-    int count;                         // Number of elements in queue
-    
+    static const int MAX_CAPACITY = 1000;  // Maximum queue capacity
+    MatchResult data[MAX_CAPACITY];        // Fixed-size array for storage
+    int front_index;                       // Index of front element
+    int rear_index;                        // Index of rear element
+    int current_size;                      // Current number of elements
+
 public:
     // Constructor initializes empty queue
-    HistoryQueue() : front_index(0), rear_index(-1), count(0) {}
+    Queue() : front_index(0), rear_index(-1), current_size(0) {}
     
-    // Check if queue is empty
-    bool isEmpty() const {
-        return count == 0;
-    }
+    /**
+     * Add a match result to the rear of the queue
+     * @param match The match result to add
+     * @return true if successful, false if queue is full
+     */
+    bool enqueue(const MatchResult& match);
     
-    // Check if queue is full
-    bool isFull() const {
-        return count == MAX_SIZE;
-    }
+    /**
+     * Retrieve the i-th match without removing it
+     * @param index 0-based index from front (0 = oldest element)
+     * @param out Reference to store the retrieved match
+     * @return true if successful, false if index is invalid
+     */
+    bool getAt(int index, MatchResult& out) const;
     
-    // Enqueue element (add to rear)
-    bool enqueue(const T& item) {
-        if (isFull()) {
-            return false;  // Queue overflow
-        }
-        rear_index = (rear_index + 1) % MAX_SIZE;  // Circular array implementation
-        data[rear_index] = item;
-        count++;
-        return true;
-    }
+    /**
+     * Get the current number of matches in the queue
+     * @return Number of matches stored
+     */
+    int size() const { return current_size; }
     
-    // Dequeue element (remove from front)
-    bool dequeue(T& item) {
-        if (isEmpty()) {
-            return false;  // Queue underflow
-        }
-        item = data[front_index];
-        front_index = (front_index + 1) % MAX_SIZE;  // Circular array implementation
-        count--;
-        return true;
-    }
-    
-    // Peek at front element without removing it
-    bool front(T& item) const {
-        if (isEmpty()) {
-            return false;
-        }
-        item = data[front_index];
-        return true;
-    }
-    
-    // Get current size of queue
-    int size() const {
-        return count;
-    }
-    
-    // Get element at specific index (0 = front)
-    bool getAt(int index, T& item) const {
-        if (index < 0 || index >= count) {
-            return false;
-        }
-        int actual_index = (front_index + index) % MAX_SIZE;
-        item = data[actual_index];
-        return true;
-    }
+    /**
+     * Check if the queue is empty
+     * @return true if empty, false otherwise
+     */
+    bool isEmpty() const { return current_size == 0; }
 };
 
-// Main class for managing game results and player performance
+/**
+ * Main class for managing game results and player performance
+ * Integrates all data structures and provides comprehensive functionality
+ */
 class GameResultManager {
 private:
-    ResultStack<MatchResult> recent_matches;    // Stack for quick access to recent matches
-    HistoryQueue<MatchResult> match_history;    // Queue for chronological match history
-    PlayerStats* player_stats;                  // Array-based structure for player statistics
-    int max_players;                           // Maximum number of players
-    int current_player_count;                  // Current number of players loaded
-    
-    // Helper function to split CSV line into tokens
-    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
-    
-    // Helper function to find player by ID
-    int findPlayerIndex(int player_id);
-    
-    // Helper function to parse score and extract numeric value
-    double parseScore(const std::string& score_str);
-    
-    // Helper function to update player statistics based on match result
-    void updatePlayerStats(const MatchResult& match);
-    
+    PlayerStats* player_stats;      // Dynamic array of player statistics
+    int max_players;               // Maximum number of players allowed
+    int current_player_count;      // Current number of players loaded
+    int next_match_id;             // Next available match ID for auto-assignment
+    Stack recent_matches;          // Stack for recent match results
+    Queue match_history;           // Queue for complete match history
+
 public:
-    // Constructor
-    GameResultManager(int max_player_capacity = 500);
+    /**
+     * Constructor initializes the manager with specified capacity
+     * @param max_players Maximum number of players to support
+     */
+    GameResultManager(int max_players);
     
-    // Destructor
+    /**
+     * Destructor deallocates dynamic memory
+     */
     ~GameResultManager();
     
-    // Load player data from players.csv
+    /**
+     * Load player data from CSV file
+     * @param filename Path to the players CSV file
+     * @return true if file opened successfully, false otherwise
+     */
     bool loadPlayerData(const std::string& filename);
     
-    // Load existing matches from matches.csv
+    /**
+     * Load match history from CSV file
+     * @param filename Path to the matches CSV file
+     * @return true if file opened successfully, false otherwise
+     */
     bool loadMatchHistory(const std::string& filename);
     
-    // Log a new match result and append to matches.csv
-    bool logMatchResult(const MatchResult& match, const std::string& filename);
+    /**
+     * Log a new match result to memory and file
+     * @param match The match result to log
+     * @param filename Optional specific filename (uses date-based if empty)
+     * @return true if logged successfully, false on critical failure
+     */
+    bool logMatchResult(const MatchResult& match, const std::string& filename = "");
     
-    // Display the most recent N matches (default 5)
+    /**
+     * Display the most recent matches
+     * @param count Number of recent matches to display (default 5)
+     */
     void displayRecentMatches(int count = 5);
     
-    // Display player performance statistics
+    /**
+     * Display statistics for a specific player
+     * @param player_id ID of the player to display
+     */
     void displayPlayerStats(int player_id);
     
-    // Display all player statistics
+    /**
+     * Display statistics for all players
+     */
     void displayAllPlayerStats();
     
-    // Query matches by player ID
+    /**
+     * Query and display all matches involving a specific player
+     * @param player_id ID of the player to query
+     */
     void queryMatchesByPlayer(int player_id);
     
-    // Query matches by stage (using optional brackets.csv for filtering)
+    /**
+     * Query and display all matches in a specific tournament stage
+     * @param stage Name of the tournament stage
+     */
     void queryMatchesByStage(const std::string& stage);
     
-    // Get total number of matches in history
-    int getTotalMatches() const;
-    
-    // Get total number of players
-    int getTotalPlayers() const;
-    
-    // Create sample CSV files for demonstration
-    void createSampleFiles();
-    
-    // Function to demonstrate logging a new match
-    void demonstrateMatchLogging();
-    
-    // Function to display menu options
+    /**
+     * Display the main program menu
+     */
     void displayMenu();
     
-    // Main program execution
+    /**
+     * Run the main program loop with user interaction
+     */
     void runProgram();
+
+private:
+    /**
+     * Helper function to extract date from scheduled time string
+     * @param scheduled_time Time string in format "YYYY-MM-DD HH:MM:SS"
+     * @return Date string in format "YYYY-MM-DD" or empty string if invalid
+     */
+    std::string extractDateFromScheduledTime(const std::string& scheduled_time);
+    
+    /**
+     * Helper function to parse CSV line into tokens
+     * @param line CSV line to parse
+     * @param tokens Array to store parsed tokens
+     * @param max_tokens Maximum number of tokens to parse
+     */
+    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
+    
+    /**
+     * Helper function to find player index by ID
+     * @param player_id Player ID to search for
+     * @return Index in player_stats array, or -1 if not found
+     */
+    int findPlayerIndex(int player_id);
+    
+    /**
+     * Helper function to parse score from score string
+     * @param score_str Score string in format "X-Y"
+     * @return First score value as double, or 0.0 on error
+     */
+    double parseScore(const std::string& score_str);
+    
+    /**
+     * Helper function to update player statistics after a match
+     * @param player_id ID of player to update
+     * @param is_winner Whether the player won the match
+     * @param score Player's score in the match
+     */
+    void updatePlayerStats(int player_id, bool is_winner, double score);
 };
 
-#endif // GAMERESULTMANAGER_HPP
+#endif // TASK4_HPP

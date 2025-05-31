@@ -1,0 +1,13 @@
+Player ID,Player Name,Registration Type,Email,Rank,Check-In,Time of Check-In,Status
+1001,Maria Johnson,Early-Bird,maria.johnson@gmail.com,A,YES,2025-05-31 10:35:21,MAIN
+1002,Olivia Kim,Early-Bird,olivia.kim@hotmail.com,A,NO,N/A,MAIN
+1003,Julia Anderson,Early-Bird,julia.anderson@yahoo.com,A,NO,N/A,MAIN
+1004,Mary James,Wildcard,mary@gmail.com,B,NO,N/A,MAIN
+1005,Dean Adams,Wildcard,dean@gmail.com,B,NO,N/A,MAIN
+1006,Sofia Garcia,Wildcard,sofia.garcia@yahoo.com,B,YES,2025-05-31 10:35:43,MAIN
+1007,Claire Dubois,Standard,claire.dubois@yahoo.com,C,NO,N/A,MAIN
+1008,James Smith,Standard,james.smith@gmail.com,C,NO,N/A,MAIN
+1009,Thomas Schmidt,Standard,thomas.schmidt@gmail.com,C,NO,N/A,MAIN
+1010,Emma Chen,Last-Minute,emma.chen@hotmail.com,D,NO,N/A,MAIN
+1011,Alexander Brown,Last-Minute,alexander.brown@gmail.com,D,NO,N/A,MAIN
+1012,Priya Singh,Last-Minute,priya.singh@gmail.com,D,YES,2025-05-31 10:35:33,MAIN
