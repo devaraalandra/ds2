@@ -592,7 +592,6 @@ void GameResultManager::displayMenu() {
     std::cout << "│ 3. Display Specific Player Statistics                      │\n";
     std::cout << "│ 4. Query Matches by Player                                 │\n";
     std::cout << "│ 5. Query Matches by Stage                                  │\n";
-    std::cout << "│ 6. Show Data Structure Justification                       │\n";
     std::cout << "│ 0. Exit                                                    │\n";
     std::cout << "└" << std::string(60, '=') << "┘\n";
     std::cout << "Enter your choice: ";
@@ -668,38 +667,6 @@ void GameResultManager::runProgram() {
                 std::string stage;
                 std::getline(std::cin, stage);
                 queryMatchesByStage(stage);
-                break;
-            }
-            
-            case 6: {
-                std::cin.ignore(); // Clear newline character
-                std::cout << "\n┌" << std::string(70, '=') << "┐\n";
-                std::cout << "│" << std::setw(22) << " " << "DATA STRUCTURE JUSTIFICATION" << std::setw(20) << " " << "│\n";
-                std::cout << "├" << std::string(70, '=') << "┤\n";
-                std::cout << "│ This system uses three carefully chosen data structures:      │\n";
-                std::cout << "├" << std::string(70, '-') << "┤\n";
-                std::cout << "│ 1. STACK for Recent Matches (LIFO - Last In, First Out):     │\n";
-                std::cout << "│    • Provides quick access to the most recent match results   │\n";
-                std::cout << "│    • Perfect for displaying latest tournament activities      │\n";
-                std::cout << "│    • Tournament organizers frequently need recent results     │\n";
-                std::cout << "│    • O(1) insertion and top access for efficiency            │\n";
-                std::cout << "├" << std::string(70, '-') << "┤\n";
-                std::cout << "│ 2. QUEUE for Match History (FIFO - First In, First Out):     │\n";
-                std::cout << "│    • Maintains chronological order of all matches            │\n";
-                std::cout << "│    • Essential for historical analysis and trend tracking    │\n";
-                std::cout << "│    • Supports comprehensive tournament record keeping        │\n";
-                std::cout << "│    • Enables time-based queries and performance evolution    │\n";
-                std::cout << "├" << std::string(70, '-') << "┤\n";
-                std::cout << "│ 3. DYNAMIC ARRAY for Player Statistics:                      │\n";
-                std::cout << "│    • Simple, efficient storage with direct index access      │\n";
-                std::cout << "│    • O(1) access time for player lookups by index           │\n";
-                std::cout << "│    • Memory-efficient with predictable allocation           │\n";
-                std::cout << "│    • Suitable for relatively stable player roster           │\n";
-                std::cout << "├" << std::string(70, '-') << "┤\n";
-                std::cout << "│ These structures work together to provide both immediate      │\n";
-                std::cout << "│ access to recent results and comprehensive historical        │\n";
-                std::cout << "│ analysis capabilities.                                       │\n";
-                std::cout << "└" << std::string(70, '=') << "┘\n";
                 break;
             }
             
