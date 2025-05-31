@@ -1,198 +1,222 @@
 #ifndef ESPORTSCHAMPIONSHIP_HPP
 #define ESPORTSCHAMPIONSHIP_HPP
 
-#include <string>
-#include <fstream>
+// Common Standard Includes
 #include <iostream>
+#include <fstream>
 #include <sstream>
+#include <string>
+#include <cstring>
+#include <cstdlib>
+#include <ctime>
 #include <iomanip>
-#include <limits> // For std::numeric_limits, often used in main input handling
+#include <limits>
+#include <algorithm> // For std::min (used in Task 4)
+// #include <stdexcept> // For std::stoi, std::stod exceptions (used in Task 4)
 
-// Forward declarations if any class needs to know about another before full definition
-class Spectator; // Used by several Task 3 queue/stack classes
+// Forward declarations
+class Player;
+class Match;
+class Group;
+class MatchQueue;
+class PlayerPriorityQueue;
+class Tournament;
 
-// ---- Task 3 Class Definitions ----
+struct Task4_MatchResult;
+class Task4_Stack;
+class Task4_Queue;
+struct Task4_PlayerStats;
+class Task4_GameResultManager;
 
-// -------- Spectator Class (from Task3.hpp) --------
-class Spectator {
+
+// Task 1: Match Scheduling
+class Player {
 public:
-    std::string id, name, supportedPlayer, category, day;
-    bool wantsLiveStream;
-    int paymentAmount;
-    bool active; // active in tournament or left
-    Spectator* next;
+    Player(int _id, const char* _name, const char* _rank, const char* _registrationType, int _ranking,
+           const char* _email, int _teamID, bool _checkInStatus);
+    int getId() const;
+    const char* getName() const;
+    const char* getRank() const;
+    const char* getCurrentStage() const;
+    int getWins() const;
+    int getLosses() const;
+    int getGroupId() const;
+    bool isRegistered() const;
+    bool isCheckedIn() const;
+    const char* getCheckInTime() const;
+    const char* getRegistrationType() const;
 
-    Spectator(std::string _id, std::string _name, bool _wantsLiveStream, std::string _supportedPlayer,
-              std::string _category, std::string _day);
+    void setCurrentStage(const char* stage);
+    void setGroupId(int id);
+    void setCheckIn(bool status, const char* time);
+    void incrementWins();
+    void incrementLosses();
+    void advanceStage();
 
-    void assignPaymentAmount();
+private:
+    int id;
+    char name[100];
+    char rank[2];
+    char registrationType[30];
+    char currentStage[20];
+    int wins;
+    int losses;
+    int groupId;
+    bool registered;
+    bool checkedIn;
+    char checkInTime[20];
 };
 
-// -------- SpectatorList (Linked List - from Task3.hpp) --------
-class SpectatorList {
-    Spectator* head;
+class MatchQueue {
 public:
-    SpectatorList();
-    Spectator* getHead() const;
-    void registerSpectator(const std::string& id, const std::string& name, bool wantsLiveStream,
-                           const std::string& supportedPlayer, const std::string& category, const std::string& day);
-    void loadFromCSV(const char* filename);
-    void displaySpectators() const;
-    void displayActiveSpectators(const std::string& roundName) const;
-    // Helper to save to CSV, can be called from main
-    void saveToCSV(const char* filename) const;
-};
-
-// -------- Task3Match Class (Renamed from Match - from Task3.hpp) --------
-class Task3Match {
-public:
-    int matchId;
-    std::string team1, team2; // Player IDs
-    std::string scheduledTime;
-    std::string stage;
-    int round;
-    std::string status;
-    std::string winnerId; // Player ID
-    Task3Match* next;
-
-    Task3Match(int id, const std::string& t1, const std::string& t2, const std::string& sched, const std::string& stg,
-               int rnd, const std::string& sts = "", const std::string& winner = "");
-};
-
-// -------- Task3MatchList (Linked List - Renamed from MatchList - from Task3.hpp) --------
-class Task3MatchList {
-    Task3Match* head;
-public:
-    Task3MatchList();
-    ~Task3MatchList();
-    Task3Match* getHead() const;
-    void loadFromCSV(const char* filename);
-    void printGroupStageRound1Matches(const std::string& day) const; // Used during spectator registration
-};
-
-// -------- StringSet (linked list based set - from Task3.hpp) --------
-class StringSet {
+    MatchQueue();
+    ~MatchQueue();
+    void enqueue(Match* match);
+    Match* dequeue();
+    bool isEmpty() const;
+    int getSize() const;
+private:
     struct Node {
-        std::string val;
+        Match* match;
         Node* next;
-        Node(const std::string& v) : val(v), next(nullptr) {}
+        Node(Match* m);
+    };
+    Node *front, *rear;
+    int size;
+};
+
+class PlayerPriorityQueue {
+public:
+    PlayerPriorityQueue();
+    ~PlayerPriorityQueue();
+    void enqueue(Player* player);
+    Player* dequeue();
+    bool isEmpty() const;
+    int getSize() const;
+private:
+    struct Node {
+        Player* player;
+        Node* next;
+        Node(Player* p);
     };
     Node* head;
-public:
-    StringSet();
-    ~StringSet();
-    bool contains(const std::string& s) const;
-    void insert(const std::string& s);
-};
-
-// -------- Priority Seating Queue (linked list - from Task3.hpp) --------
-class PrioritySeatingQueue {
-    struct Node {
-        Spectator* data;
-        Node* next;
-        Node(Spectator* sp) : data(sp), next(nullptr) {}
-    };
-    Node* front;
-
-    int getPriority(const std::string& category); // Made private as it's an internal helper
-public:
-    PrioritySeatingQueue();
-    // Proper destructor for linked list
-    ~PrioritySeatingQueue();
-    void enqueue(Spectator* sp);
-    void displayQueue() const;
-};
-
-// -------- MultiLevelLiveStreamQueue (linked list - from Task3.hpp) --------
-class MultiLevelLiveStreamQueue {
-    struct Node {
-        Spectator* data;
-        Node* next;
-        Node(Spectator* sp) : data(sp), next(nullptr) {}
-    };
-    Node* influencerHead;
-    Node* vipHead;
-    Node* generalHead;
-    int capacity;
-
-    int countList(Node* head) const;
-    // Helper for destructor
-    void clearList(Node*& head_ptr);
-    // Helper for display
-    int displayGroup(const std::string& label, Node* head, int count) const;
-    int getTotalCount() const; // New helper to get total count
-
-public:
-    MultiLevelLiveStreamQueue(int cap);
-    // Proper destructor
-    ~MultiLevelLiveStreamQueue();
-    void enqueue(Spectator* sp);
-    void displayQueue() const;
-};
-
-// -------- CircularStreamRotation (linked list - from Task3.hpp) --------
-class CircularStreamRotation {
-    struct Node {
-        Spectator* data;
-        Node* next;
-        Node(Spectator* sp) : data(sp), next(nullptr) {}
-    };
-    Node* tail;  // tail points to last node, tail->next is front
     int size;
-    int capacity;
-
-public:
-    CircularStreamRotation(int cap);
-    ~CircularStreamRotation();
-    bool isFull() const;
-    bool isEmpty() const;
-    void enqueue(Spectator* sp);
-    Spectator* dequeue();
-    void displayQueue() const;
+    bool isEarlier(const char* time1, const char* time2);
 };
 
-// -------- WatchHistoryStack (linked list stack - from Task3.hpp) --------
-class WatchHistoryStack {
-    struct Node {
-        Spectator* data;
-        Node* next;
-        Node(Spectator* sp) : data(sp), next(nullptr) {}
-    };
-    Node* top;
-
+class Match {
 public:
-    WatchHistoryStack();
-    // Proper destructor
-    ~WatchHistoryStack();
-    void push(Spectator* sp);
-    void display() const;
+    Match(int _id, Player* p1, Player* p2, const char* _stage, int _groupId, int _round);
+    int getId() const;
+    Player* getPlayer1() const;
+    Player* getPlayer2() const;
+    const char* getStage() const;
+    int getGroupId() const;
+    int getRound() const;
+    const char* getStatus() const;
+    Player* getWinner() const;
+    const char* getScore() const;
+    const char* getScheduledTime() const;
+
+    void setStatus(const char* _status);
+    void setWinner(Player* _winner);
+private:
+    int id;
+    Player *player1, *player2;
+    char stage[20];
+    int groupId;
+    int round;
+    char status[20];
+    Player* winner;
+    char score[10];
+    char scheduledTime[20];
 };
 
-// -------- WaitingQueue (linked list queue - from Task3.hpp) --------
-class WaitingQueue {
-    struct Node {
-        Spectator* data;
-        Node* next;
-        Node(Spectator* sp) : data(sp), next(nullptr) {}
-    };
-    Node* front;
-    Node* rear;
+class Group {
 public:
-    WaitingQueue();
-    // Proper destructor
-    ~WaitingQueue();
-    bool isEmpty() const;
-    void enqueue(Spectator* sp);
-    Spectator* dequeue();
-    // Added display for debugging/verification if needed, though not in original
-    // void displayQueue() const; 
+    Group(int _id, const char* _rankType, const char* _registrationType);
+    ~Group();
+    int getId() const;
+    bool isCompleted() const;
+    Player* getWinner() const;
+    int getSemiFinalsCompleted() const;
+    const char* getRankType() const;
+    const char* getRegistrationType() const;
+    int getPlayerCount() const;
+    Player* getPlayer(int index) const;
+
+    void addPlayer(Player* player);
+    void createSemifinalsOnly(int& nextMatchId);
+    void createFinalMatch(int& nextMatchId, Player* semifinal1Winner, Player* semifinal2Winner);
+    Match* getMatch(int index);
+    int getMatchCount() const;
+    void incrementSemiFinalsCompleted();
+    bool areSemifinalsComplete();
+    void setGroupWinner(Player* player);
+    void displayStatus();
+
+private:
+    int id;
+    char rankType[2];
+    char registrationType[30];
+    Player* players[4]; // Max 4 players per group
+    int playerCount;
+    Match* matches[3]; // 2 semifinals, 1 final
+    int matchCount;
+    Player* winner;
+    bool completed;
+    int semiFinalsCompleted;
+};
+
+class Tournament {
+public:
+    Tournament(int _maxPlayers = 100, int _maxMatches = 200, int _maxGroupWinners = 20);
+    ~Tournament();
+
+    void initialize(const char* playerFilename);
+    void displayCheckInStatus();
+    void createGroupSemifinals();
+    Match* getNextMatch();
+    void updateMatchResult(Match* match, Player* winner);
+    void displayStatus();
+    void runCLI_TASK1();
+    bool areGroupsCreated() const;
+
+private:
+    void loadPlayersFromCSV(const char* filename);
+    void groupPlayersByRank();
+    void saveMatchesToCSV(const char* filename);
+    void saveBracketsToCSV(const char* filename);
+    void createKnockoutMatches();
+    void createFinalMatch(Player* finalist1, Player* finalist2);
+
+    Player** players;
+    int playerCount;
+    int maxPlayers;
+    Match** matches;
+    int matchCount;
+    int maxMatches;
+    Group** groups;
+    int groupCount;
+    Player** groupWinners;
+    int groupWinnerCount;
+    int maxGroupWinners;
+
+    MatchQueue upcomingMatches;
+    PlayerPriorityQueue playerCheckInQueue;
+
+    int nextMatchId;
+    int totalMatchesPlayed;
+    bool groupSemifinalsCreated;
+    bool knockoutCreated;
+    bool groupsCreated;
 };
 
 
-// ---- Task 4 Data Structures and Class Definitions ----
+// Task 4: Result Logging
+const int TASK4_MAX_CAPACITY = 100;
 
-// Structure to represent a match result (from task4.hpp)
-struct MatchResult {
+struct Task4_MatchResult {
     int match_id;
     std::string stage;
     int group_id;
@@ -203,235 +227,89 @@ struct MatchResult {
     std::string status;
     int winner_id;
     std::string score;
-    
-    // Default constructor
-    MatchResult();
-    
-    // Parameterized constructor
-    MatchResult(int mid, const std::string& st, int gid, int r, int p1, int p2,
-                const std::string& sched_time, const std::string& stat, int winner, const std::string& sc);
+
+    Task4_MatchResult();
+    Task4_MatchResult(int mid, const std::string& st, int gid, int r, int p1, int p2,
+                      const std::string& sch_time, const std::string& stat, int wid, const std::string& scr);
 };
 
-// Structure to represent player statistics (from task4.hpp)
-struct PlayerStats {
+class Task4_Stack {
+public:
+    Task4_Stack();
+    bool push(const Task4_MatchResult& match);
+    bool pop(Task4_MatchResult& out);
+    bool peek(Task4_MatchResult& out) const;
+    bool getFromTop(int index, Task4_MatchResult& out) const;
+    bool isEmpty() const;
+    int size() const;
+
+private:
+    Task4_MatchResult data[TASK4_MAX_CAPACITY];
+    int top_index;
+};
+
+class Task4_Queue {
+public:
+    Task4_Queue();
+    bool enqueue(const Task4_MatchResult& match);
+    bool dequeue(Task4_MatchResult& out);
+    bool peek(Task4_MatchResult& out) const;
+    bool getAt(int index, Task4_MatchResult& out) const;
+    bool isEmpty() const;
+    int size() const;
+
+private:
+    Task4_MatchResult data[TASK4_MAX_CAPACITY];
+    int front_index;
+    int rear_index;
+    int current_size;
+};
+
+struct Task4_PlayerStats {
     int player_id;
     std::string name;
     std::string rank;
     std::string contact;
     std::string registration_time;
+    int total_matches;
     int wins;
     int losses;
-    int total_matches;
     double avg_score;
-    
-    // Default constructor
-    PlayerStats();
-    
-    // Parameterized constructor
-    PlayerStats(int pid, const std::string& n, const std::string& r, const std::string& cont, 
-                const std::string& reg_time);
+
+    Task4_PlayerStats();
+    Task4_PlayerStats(int pid, const std::string& n, const std::string& r, const std::string& c, const std::string& reg_time);
 };
 
-// Custom Stack implementation for storing recent match results (from task4.hpp)
-template<typename T>
-class ResultStack {
-private:
-    static const int MAX_SIZE = 100;
-    T data[MAX_SIZE];
-    int top_index;
-    
+class Task4_GameResultManager {
 public:
-    ResultStack();
-    bool isEmpty() const;
-    bool isFull() const;
-    bool push(const T& item);
-    bool pop(T& item);
-    bool peek(T& item) const;
-    int size() const;
-    bool getFromTop(int index, T& item) const; // Get element at specific index from top
-};
+    Task4_GameResultManager(int max_players = 100);
+    ~Task4_GameResultManager();
 
-// Custom Queue implementation for maintaining chronological match history (from task4.hpp)
-template<typename T>
-class HistoryQueue {
-private:
-    static const int MAX_SIZE = 1000;
-    T data[MAX_SIZE];
-    int front_index;
-    int rear_index;
-    int count;
-    
-public:
-    HistoryQueue();
-    bool isEmpty() const;
-    bool isFull() const;
-    bool enqueue(const T& item);
-    bool dequeue(T& item);
-    bool front(T& item) const; // Peek at front
-    int size() const;
-    bool getAt(int index, T& item) const; // Get element at specific index (0 = front)
-};
-
-// Main class for managing game results and player performance (from task4.hpp)
-class GameResultManager {
-private:
-    ResultStack<MatchResult> recent_matches;
-    HistoryQueue<MatchResult> match_history;
-    PlayerStats* player_stats;
-    int max_players;
-    int current_player_count;
-    
-    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
-    int findPlayerIndex(int player_id);
-    double parseScore(const std::string& score_str);
-    void updatePlayerStats(const MatchResult& match);
-    
-public:
-    GameResultManager(int max_player_capacity = 500);
-    ~GameResultManager();
-    
     bool loadPlayerData(const std::string& filename);
     bool loadMatchHistory(const std::string& filename);
-    bool logMatchResult(const MatchResult& match, const std::string& filename);
     void displayRecentMatches(int count = 5);
     void displayPlayerStats(int player_id);
     void displayAllPlayerStats();
     void queryMatchesByPlayer(int player_id);
     void queryMatchesByStage(const std::string& stage);
-    int getTotalMatches() const;
-    int getTotalPlayers() const;
-    void createSampleFiles();
-    void demonstrateMatchLogging(); // Kept for potential direct call
-    // displayMenu() and runProgram() from original task4.hpp are handled by the integrated main
+    void runProgram();
+
+private:
+    std::string extractDateFromScheduledTime(const std::string& scheduled_time);
+    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
+    int findPlayerIndex(int player_id);
+    double parseScore(const std::string& score_str);
+    void updatePlayerStats(int player_id, bool is_winner, double score);
+    void displayMenu_Task4();
+
+    Task4_PlayerStats* player_stats;
+    int task4_max_players;
+    int current_player_count;
+
+    Task4_Stack recent_matches;
+    Task4_Queue match_history;
+
+    int next_match_id;
 };
-
-
-// ---- Task 3 Utility Function Prototypes (from Task3.hpp) ----
-void updateSpectatorsByMatchResults(SpectatorList& spectators, Task3MatchList& matches,
-                                    const std::string& stage, int round);
-
-void simulateQueueManagement(SpectatorList& regList);
-
-
-// Template Implementations for ResultStack and HistoryQueue (must be in header or included .tpp)
-// Since they are used by GameResultManager which is not templated, it's fine to put implementations in .cpp if GameResultManager is the only user.
-// However, typical template usage puts impl in .hpp or .tpp. The original task4.hpp had them directly in the class.
-// For simplicity and adherence to original structure, keeping template implementations here.
-
-// ---- ResultStack Implementation ----
-template<typename T>
-ResultStack<T>::ResultStack() : top_index(-1) {}
-
-template<typename T>
-bool ResultStack<T>::isEmpty() const {
-    return top_index == -1;
-}
-
-template<typename T>
-bool ResultStack<T>::isFull() const {
-    return top_index == MAX_SIZE - 1;
-}
-
-template<typename T>
-bool ResultStack<T>::push(const T& item) {
-    if (isFull()) {
-        return false; // Stack overflow
-    }
-    data[++top_index] = item;
-    return true;
-}
-
-template<typename T>
-bool ResultStack<T>::pop(T& item) {
-    if (isEmpty()) {
-        return false; // Stack underflow
-    }
-    item = data[top_index--];
-    return true;
-}
-
-template<typename T>
-bool ResultStack<T>::peek(T& item) const {
-    if (isEmpty()) {
-        return false;
-    }
-    item = data[top_index];
-    return true;
-}
-
-template<typename T>
-int ResultStack<T>::size() const {
-    return top_index + 1;
-}
-
-template<typename T>
-bool ResultStack<T>::getFromTop(int index, T& item) const {
-    if (index < 0 || index > top_index) {
-        return false;
-    }
-    item = data[top_index - index];
-    return true;
-}
-
-// ---- HistoryQueue Implementation ----
-template<typename T>
-HistoryQueue<T>::HistoryQueue() : front_index(0), rear_index(-1), count(0) {}
-
-template<typename T>
-bool HistoryQueue<T>::isEmpty() const {
-    return count == 0;
-}
-
-template<typename T>
-bool HistoryQueue<T>::isFull() const {
-    return count == MAX_SIZE;
-}
-
-template<typename T>
-bool HistoryQueue<T>::enqueue(const T& item) {
-    if (isFull()) {
-        return false; // Queue overflow
-    }
-    rear_index = (rear_index + 1) % MAX_SIZE;
-    data[rear_index] = item;
-    count++;
-    return true;
-}
-
-template<typename T>
-bool HistoryQueue<T>::dequeue(T& item) {
-    if (isEmpty()) {
-        return false; // Queue underflow
-    }
-    item = data[front_index];
-    front_index = (front_index + 1) % MAX_SIZE;
-    count--;
-    return true;
-}
-
-template<typename T>
-bool HistoryQueue<T>::front(T& item) const {
-    if (isEmpty()) {
-        return false;
-    }
-    item = data[front_index];
-    return true;
-}
-
-template<typename T>
-int HistoryQueue<T>::size() const {
-    return count;
-}
-
-template<typename T>
-bool HistoryQueue<T>::getAt(int index, T& item) const {
-    if (index < 0 || index >= count) {
-        return false;
-    }
-    int actual_index = (front_index + index) % MAX_SIZE;
-    item = data[actual_index];
-    return true;
-}
-
 
 #endif // ESPORTSCHAMPIONSHIP_HPP
