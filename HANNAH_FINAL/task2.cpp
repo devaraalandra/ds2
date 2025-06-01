@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <time.h>
-#include "Registration.hpp"
+#include "task2.hpp"
 
 // Queue methods
 void Queue::init() {

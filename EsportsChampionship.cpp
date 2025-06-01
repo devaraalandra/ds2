@@ -1,9 +1,10 @@
+// EsportsChampionship.cpp
 #include "EsportsChampionship.hpp"
 
-// Using namespace std for Task 1 code, as it was in the original task1.cpp
+
 using namespace std;
 
-// Task 1: Match Scheduling Implementations
+
 Player::Player(int _id, const char* _name, const char* _rank, const char* _registrationType, int _ranking,
                const char* _email, int _teamID, bool _checkInStatus)
     : id(_id), wins(0), losses(0), groupId(0), registered(true), checkedIn(_checkInStatus) {
@@ -82,6 +83,11 @@ Match* MatchQueue::dequeue() {
     return match;
 }
 
+Match* MatchQueue::peek() const {
+    if (isEmpty()) return nullptr;
+    return front->match;
+}
+
 bool MatchQueue::isEmpty() const { return front == nullptr; }
 int MatchQueue::getSize() const { return size; }
 
@@ -111,7 +117,7 @@ void PlayerPriorityQueue::enqueue(Player* player) {
         }
         if (prev != nullptr) {
              prev->next = newNode;
-        } else { // Should technically not be needed if first condition is robust.
+        } else { 
             head = newNode;
         }
         newNode->next = current;
@@ -181,7 +187,7 @@ Group::Group(int _id, const char* _rankType, const char* _registrationType) : id
 
 Group::~Group() {
     for (int i = 0; i < matchCount; i++) {
-        delete matches[i]; // Group owns its matches
+        delete matches[i]; 
     }
 }
 
@@ -268,8 +274,8 @@ Tournament::Tournament(int _maxPlayers, int _maxMatches, int _maxGroupWinners)
       groupCount(0), groupWinnerCount(0), maxGroupWinners(_maxGroupWinners), nextMatchId(1),
       totalMatchesPlayed(0), groupSemifinalsCreated(false), knockoutCreated(false), groupsCreated(false) {
     players = new Player*[maxPlayers];
-    matches = new Match*[maxMatches]; // This array will store pointers to matches.
-    groups = new Group*[10]; // Assuming max 10 groups
+    matches = new Match*[maxMatches]; 
+    groups = new Group*[10]; 
     groupWinners = new Player*[maxGroupWinners];
 }
 
@@ -279,35 +285,17 @@ Tournament::~Tournament() {
     }
     delete[] players;
 
-    // Matches created by Groups are deleted by Group's destructor.
-    // Tournament should only delete matches it created directly (knockout/overall final)
-    // and are not also managed by a group.
-    // The current structure adds group matches also to Tournament::matches.
-    // A robust solution requires careful ownership tracking.
-    // For this version, we assume matches in Tournament::matches are distinct or managed.
-    // If a match is in a Group, Group deletes it. If Tournament also has a pointer, it shouldn't delete again.
-    // This simplified destructor assumes Tournament deletes matches in its `matches` array IF they were not deleted by groups.
-    // This is tricky. A better way is for Tournament to only delete matches it exclusively owns.
-    // Given the current structure, we iterate through all matches. If they were created by groups,
-    // and groups were deleted, this could be problematic.
-    // For now, let's clear the matches that were created and managed by the Tournament.
-    // The original code has a double deletion risk here.
-    // To keep it simple and mirror original's intent while acknowledging issue:
     for (int i = 0; i < matchCount; i++) {
-        // This assumes `matches[i]` might point to a match that a `Group` object also points to.
-        // If `groups[g]->delete` was called and it deleted `matches[i]`, this is use-after-free.
-        // A safe way would be for groups to nullify their pointers in the tournament's match list
-        // upon their own destruction or transfer unique ownership.
-        // Keeping the original deletion logic for this exercise, but noting it's unsafe:
-        delete matches[i]; // Potential double deletion if group already deleted it.
+        
+        delete matches[i]; 
     }
     delete[] matches;
 
     for (int i = 0; i < groupCount; i++) {
-        delete groups[i]; // Group destructor handles its own matches
+        delete groups[i]; 
     }
     delete[] groups;
-    delete[] groupWinners; // Array of pointers to Players (Players deleted above)
+    delete[] groupWinners; 
 }
 
 bool Tournament::areGroupsCreated() const { return groupsCreated; }
@@ -319,18 +307,18 @@ void Tournament::loadPlayersFromCSV(const char* filename) {
         return;
     }
     char line[512];
-    file.getline(line, 512); // Skip header
+    file.getline(line, 512); 
     while (file.getline(line, 512) && playerCount < maxPlayers) {
         if (strlen(line) == 0) continue;
         stringstream ss(line);
         char idStr[10], nameStr[100], regTypeStr[30], emailStr[100], rankStr[2], checkInStr[10];
-        // Format: ID,Name,RegistrationType,Email,Rank,CheckInStatus
+        
         ss.getline(idStr, 10, ',');
         ss.getline(nameStr, 100, ',');
         ss.getline(regTypeStr, 30, ',');
         ss.getline(emailStr, 100, ',');
         ss.getline(rankStr, 2, ',');
-        ss.getline(checkInStr, 10, ',');
+        ss.getline(checkInStr, 10, ','); 
 
         int id = 0;
         if (idStr[0] == '\0') { cout << "Warning: Empty ID, skipping line." << endl; continue; }
@@ -347,7 +335,7 @@ void Tournament::loadPlayersFromCSV(const char* filename) {
         Player* p = new Player(id, nameStr, rankStr, regTypeStr, 0, emailStr, 0, checkedIn);
         players[playerCount++] = p;
         if (checkedIn) {
-            if (p->getCheckInTime()[0] == '\0') { // Set a default check-in time if missing
+            if (p->getCheckInTime()[0] == '\0') { 
                 time_t now_ct = time(0);
                 tm* ltm_ct = localtime(&now_ct);
                 char buffer_ct[20];
@@ -369,8 +357,8 @@ void Tournament::groupPlayersByRank() {
         const char* regType;
     };
     const char* ranks[] = {"A", "B", "C", "D"};
-    const char* regTypes[] = {"Early-Bird", "Wildcard", "Standard", "Last-Minute"}; // Ensure these match CSV
-    PlayerGroupTemp groupsArr[16]; // 4 ranks * 4 regTypes
+    const char* regTypes[] = {"Early-Bird", "Wildcard", "Standard", "Last-Minute"}; 
+    PlayerGroupTemp groupsArr[16]; 
     int groupArrCount = 0;
     for (int r = 0; r < 4; ++r) {
         for (int t = 0; t < 4; ++t) {
@@ -394,11 +382,11 @@ void Tournament::groupPlayersByRank() {
                 break;
             }
         }
-        if (!assigned) { /* Player could not be categorized */ }
+        if (!assigned) {  }
     }
 
     int groupIndex = 0;
-    for (int i = 0; i < 16 && groupIndex < 10; ++i) { // Max 10 groups
+    for (int i = 0; i < 16 && groupIndex < 10; ++i) { 
         for (int j = 0; (j + 3) < groupsArr[i].count && groupIndex < 10; j += 4) {
             groups[groupIndex] = new Group(groupIndex + 1, groupsArr[i].rank, groupsArr[i].regType);
             for (int k = 0; k < 4; ++k) {
@@ -502,10 +490,10 @@ void Tournament::createGroupSemifinals() {
 
     for (int i = 0; i < groupCount; i++) {
         groups[i]->createSemifinalsOnly(nextMatchId);
-        for (int j = 0; j < 2; j++) { // Groups create 2 semifinal matches
+        for (int j = 0; j < 2; j++) { 
             Match* match = groups[i]->getMatch(j);
             if (match != nullptr && matchCount < maxMatches) {
-                matches[matchCount++] = match; // Add to tournament's global match list
+                matches[matchCount++] = match; 
                 upcomingMatches.enqueue(match);
             } else if (matchCount >= maxMatches) {
                 cout << "Warning: Max matches limit reached, cannot add more group semifinal matches." << endl;
@@ -523,15 +511,15 @@ Match* Tournament::getNextMatch() {
     return upcomingMatches.dequeue();
 }
 
-void Tournament::updateMatchResult(Match* match, Player* winner_player) { // Renamed winner to winner_player
+void Tournament::updateMatchResult(Match* match, Player* winner_player) { 
     if (match == nullptr || winner_player == nullptr) { return; }
 
     match->setWinner(winner_player);
     totalMatchesPlayed++;
 
-    if (strcmp(match->getStage(), "group") == 0 && match->getRound() == 1) { // Group Semifinal
-        int groupIdVal = match->getGroupId(); // Renamed groupId
-        Group* groupPtr = groups[groupIdVal - 1]; // Renamed group
+    if (strcmp(match->getStage(), "group") == 0 && match->getRound() == 1) { 
+        int groupIdVal = match->getGroupId(); 
+        Group* groupPtr = groups[groupIdVal - 1]; 
         groupPtr->incrementSemiFinalsCompleted();
 
         if (groupPtr->areSemifinalsComplete()) {
@@ -548,7 +536,7 @@ void Tournament::updateMatchResult(Match* match, Player* winner_player) { // Ren
                 }
             }
         }
-    } else if (strcmp(match->getStage(), "group") == 0 && match->getRound() == 2) { // Group Final
+    } else if (strcmp(match->getStage(), "group") == 0 && match->getRound() == 2) { 
         int groupIdVal = match->getGroupId();
         Group* groupPtr = groups[groupIdVal - 1];
         groupPtr->setGroupWinner(winner_player);
@@ -570,7 +558,7 @@ void Tournament::updateMatchResult(Match* match, Player* winner_player) { // Ren
             cout << "\nAll groups completed! Creating knockout stage matches..." << endl;
             createKnockoutMatches();
         }
-    } else if (strcmp(match->getStage(), "knockout") == 0 && match->getRound() == 1) { // Knockout Semifinal
+    } else if (strcmp(match->getStage(), "knockout") == 0 && match->getRound() == 1) { 
         bool allKnockoutSemifinalsCompleted = true;
         Player* semifinalWinners[2] = {nullptr, nullptr};
         int semifinalWinnerCount = 0;
@@ -592,7 +580,7 @@ void Tournament::updateMatchResult(Match* match, Player* winner_player) { // Ren
                 createFinalMatch(semifinalWinners[0], semifinalWinners[1]);
              }
         }
-    } else if (strcmp(match->getStage(), "knockout") == 0 && match->getRound() == 2) { // Knockout Final
+    } else if (strcmp(match->getStage(), "knockout") == 0 && match->getRound() == 2) { 
         cout << "\n*** TOURNAMENT CHAMPION: " << winner_player->getName() << " ***\n" << endl;
     }
 
@@ -617,7 +605,7 @@ void Tournament::createKnockoutMatches() {
         Match* semi1 = new Match(nextMatchId++, groupWinners[0], groupWinners[1], "knockout", 0, 1);
         if (matchCount < maxMatches) matches[matchCount++] = semi1; else cout << "Max matches reached.\n";
         upcomingMatches.enqueue(semi1);
-        // Final with groupWinners[2] created after semi1 result via updateMatchResult logic.
+        
     } else if (groupWinnerCount >= 4) {
         Match* semi1 = new Match(nextMatchId++, groupWinners[0], groupWinners[1], "knockout", 0, 1);
         Match* semi2 = new Match(nextMatchId++, groupWinners[2], groupWinners[3], "knockout", 0, 1);
@@ -657,7 +645,7 @@ void Tournament::displayStatus() {
     cout << "Active Groups: " << groupCount << endl;
     cout << "Matches Played: " << totalMatchesPlayed << endl;
 
-    const char* currentStageStrVal; // Renamed currentStageStr
+    const char* currentStageStrVal; 
     int expectedGroupMatches = groupCount * 3;
     int expectedKnockoutMatches = 0;
     if (groupWinnerCount >= 4) expectedKnockoutMatches = 3;
@@ -684,7 +672,7 @@ void Tournament::displayStatus() {
 
     for (int i = 0; i < groupCount; i++) { groups[i]->displayStatus(); }
 
-    bool allGroupsAreDone = true; // Renamed allGroupsAreComplete
+    bool allGroupsAreDone = true; 
     if (groupCount == 0 && !groupsCreated) allGroupsAreDone = false;
     else if (groupCount > 0) {
         for (int i = 0; i < groupCount; i++) {
@@ -756,7 +744,7 @@ void Tournament::displayStatus() {
 }
 
 void Tournament::runCLI_TASK1() {
-    int choice_val; // Renamed choice
+    int choice_val; 
     bool exitCLI = false;
     while (!exitCLI) {
         cout << "\n===== ASIA PACIFIC UNIVERSITY ESPORTS CHAMPIONSHIP (TASK 1) =====\n";
@@ -834,7 +822,7 @@ void Tournament::runCLI_TASK1() {
                             updateMatchResult(match, winner);
                             cout << "Match completed. Winner: " << winner->getName() << " (Rank: " << winner->getRank() << ")" << endl;
 
-                            // Stage completion messages
+                            
                             bool allGrpsComplete = true;
                             if(groupCount == 0) allGrpsComplete = false;
                             for (int i = 0; i < groupCount; i++) if (!groups[i]->isCompleted()) allGrpsComplete = false;
@@ -873,19 +861,695 @@ void Tournament::runCLI_TASK1() {
         }
         if (!exitCLI && choice_val != 99) {
              cout << "\n(Task 1: Press Enter to continue...)";
-             // cin.get(); // Usually problematic, cin.ignore above should handle it
+             
         }
     }
 }
 
-// Task 2: Player Registration (Placeholder)
-void runTask2_PlayerRegistration() {
-    cout << "\n--- Player Registration (Task 2) ---" << endl;
-    cout << "This functionality is a placeholder." << endl;
-    cout << "Returning to main menu." << endl;
+
+static int isYesResponse_Task2(const char* input) {
+    char lower[10];
+    int i;
+    for (i = 0; input[i] && i < 9; i++) {
+        lower[i] = tolower(input[i]);
+    }
+    lower[i] = '\0';
+    return strcmp(lower, "yes") == 0 || strcmp(lower, "y") == 0;
 }
 
-// Task 3: Spectator Management (Placeholder)
+static int fileExists_Task2(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (file) {
+        fclose(file);
+        return 1;
+    }
+    return 0;
+}
+
+static int isNumeric_Task2(const char* str) {
+    if (!str || !str[0]) return 0;
+    for (int i = 0; str[i]; i++) {
+        if (!isdigit(str[i])) return 0;
+    }
+    return 1;
+}
+
+
+static int getLastPlayerID_Task2(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (!file) return 1000; 
+    char line[256];
+    int maxID = 1000; 
+    fgets(line, 256, file); 
+    while (fgets(line, 256, file)) {
+        if (line[0] == '\0' || line[0] == '\n') continue;
+        char* token = strtok(line, ",");
+        if (token && isNumeric_Task2(token)) {
+            int id = atoi(token);
+            if (id > maxID) maxID = id;
+        }
+    }
+    fclose(file);
+    return maxID;
+}
+
+static void sanitizeForCSV_Task2(char* dest, const char* src, int maxLen) {
+    int i, j = 0;
+    for (i = 0; src[i] && j < maxLen - 1; i++) {
+        if (src[i] >= 32 && src[i] <= 126) { 
+            dest[j++] = (src[i] == ',') ? ';' : src[i]; 
+        }
+    }
+    dest[j] = '\0';
+}
+
+static void normalizeRegistrationType_Task2(char* dest, const char* src, int maxLen) {
+    int i = 0, j = 0;
+    while (src[i] == ' ' || src[i] == '\t') i++; 
+    int firstWord = 1;
+    while (src[i] && j < maxLen - 1) {
+        if (src[i] == ' ' || src[i] == '-') {
+            dest[j++] = '-'; 
+            firstWord = 1;
+            i++;
+            while (src[i] == ' ' || src[i] == '-') i++; 
+            continue;
+        }
+        if (firstWord) {
+            dest[j++] = toupper(src[i++]);
+            firstWord = 0;
+        } else {
+            dest[j++] = tolower(src[i++]);
+        }
+    }
+    while (j > 0 && (dest[j-1] == ' ' || dest[j-1] == '-')) j--; 
+    dest[j] = '\0';
+}
+
+static void clearInputBuffer_Task2() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+static void waitForEnter_Task2() {
+    printf("\nPress Enter to return to the Task 2 menu...");
+    clearInputBuffer_Task2(); 
+}
+
+
+void Task2_RegistrationQueue::init() {
+    front = NULL;
+    rear = NULL;
+    size = 0;
+}
+
+int Task2_RegistrationQueue::isEmpty() {
+    return front == NULL;
+}
+
+void Task2_RegistrationQueue::enqueue(struct Task2_PlayerNode* player) {
+    player->next = NULL;
+    if (isEmpty()) {
+        front = rear = player;
+    } else {
+        rear->next = player;
+        rear = player;
+    }
+    size++;
+}
+
+struct Task2_PlayerNode* Task2_RegistrationQueue::dequeue() {
+    if (isEmpty()) return NULL;
+    struct Task2_PlayerNode* temp = front;
+    front = front->next;
+    if (front == NULL) rear = NULL;
+    size--;
+    return temp;
+}
+
+struct Task2_PlayerNode* Task2_RegistrationQueue::peek() {
+    return front;
+}
+
+int Task2_RegistrationQueue::getSize() {
+    return size;
+}
+
+void Task2_RegistrationQueue::destroy() {
+    while (!isEmpty()) {
+        struct Task2_PlayerNode* temp = dequeue();
+        free(temp);
+    }
+}
+
+
+void Task2_RegistrationPriorityQueue::init() {
+    earlyBirdQueue.init();
+    wildcardQueue.init();
+    standardQueue.init();
+    lastMinuteQueue.init();
+    waitlistQueue.init();
+    size = 0;
+}
+
+void Task2_RegistrationPriorityQueue::enqueue(struct Task2_PlayerNode* player) {
+    if (strcmp(player->registrationType, "Early-Bird") == 0) {
+        earlyBirdQueue.enqueue(player);
+    } else if (strcmp(player->registrationType, "Wildcard") == 0) {
+        wildcardQueue.enqueue(player);
+    } else if (strcmp(player->registrationType, "Standard") == 0) {
+        standardQueue.enqueue(player);
+    } else if (strcmp(player->registrationType, "Last-Minute") == 0) {
+        lastMinuteQueue.enqueue(player);
+    } else {
+        standardQueue.enqueue(player); 
+    }
+    size++;
+}
+
+struct Task2_PlayerNode* Task2_RegistrationPriorityQueue::dequeue() {
+    struct Task2_PlayerNode* player = NULL;
+    if (!earlyBirdQueue.isEmpty()) {
+        player = earlyBirdQueue.dequeue();
+    } else if (!wildcardQueue.isEmpty()) {
+        player = wildcardQueue.dequeue();
+    } else if (!standardQueue.isEmpty()) {
+        player = standardQueue.dequeue();
+    } else if (!lastMinuteQueue.isEmpty()) {
+        player = lastMinuteQueue.dequeue();
+    }
+    if (player != NULL) size--;
+    return player;
+}
+
+int Task2_RegistrationPriorityQueue::isEmpty() {
+    return earlyBirdQueue.isEmpty() && wildcardQueue.isEmpty() &&
+           standardQueue.isEmpty() && lastMinuteQueue.isEmpty();
+}
+
+int Task2_RegistrationPriorityQueue::getSize() {
+    return size;
+}
+
+struct Task2_RegistrationQueue* Task2_RegistrationPriorityQueue::getWaitlistQueue() {
+    return &waitlistQueue;
+}
+
+void Task2_RegistrationPriorityQueue::setWaitlistQueue(struct Task2_RegistrationQueue* q) {
+    waitlistQueue.destroy(); 
+    waitlistQueue.init();
+    struct Task2_PlayerNode* current = q->front;
+    while (current) {
+        struct Task2_PlayerNode* newPlayer = (struct Task2_PlayerNode*)malloc(sizeof(struct Task2_PlayerNode));
+        memcpy(newPlayer, current, sizeof(struct Task2_PlayerNode));
+        newPlayer->next = NULL; 
+        waitlistQueue.enqueue(newPlayer);
+        current = current->next;
+    }
+    
+    while (!q->isEmpty()) {
+        struct Task2_PlayerNode* temp = q->dequeue();
+        free(temp);
+    }
+}
+
+void readPlayersFromCSV_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename) {
+    if (!fileExists_Task2(filename)) {
+        printf("Task 2: CSV file '%s' not found. Starting with empty registration list.\n", filename);
+        return;
+    }
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        printf("Task 2: Error opening CSV file '%s'.\n", filename);
+        return;
+    }
+
+    char line[256];
+    if (!fgets(line, 256, file)) { 
+        printf("Task 2: Warning: CSV file '%s' is empty or header missing.\n", filename);
+        fclose(file);
+        return;
+    }
+
+    while (fgets(line, 256, file)) {
+        if (line[0] == '\n' || line[0] == '\0') continue; 
+        
+        struct Task2_PlayerNode* player = (struct Task2_PlayerNode*)malloc(sizeof(struct Task2_PlayerNode));
+        
+        player->ranking = 0; 
+        player->teamID = 0;
+        player->checkInStatus = 0;
+        player->group = 0;
+        player->next = NULL;
+        strcpy(player->checkInTime, "N/A");
+        player->rank[0] = '\0'; player->rank[1] = '\0';
+        player->playerID[0] = '\0';
+        player->playerName[0] = '\0';
+        player->registrationType[0] = '\0';
+        player->email[0] = '\0';
+        strcpy(player->status, "MAIN"); 
+        
+        char* token = strtok(line, ",");
+        int field = 0;
+        while (token && field < 7) { 
+            int len = strlen(token);
+            if (len > 0 && token[len-1] == '\n') token[len-1] = '\0'; 
+
+            switch (field) {
+                case 0: strncpy(player->playerID, token, 9); player->playerID[9] = '\0'; break;
+                case 1: strncpy(player->playerName, token, 49); player->playerName[49] = '\0'; break;
+                case 2: strncpy(player->registrationType, token, 19); player->registrationType[19] = '\0'; break;
+                case 3: strncpy(player->email, token, 99); player->email[99] = '\0'; break;
+                case 4: if (token[0]) player->rank[0] = token[0]; player->rank[1] = '\0'; break;
+                case 5: player->checkInStatus = (strcmp(token, "YES") == 0); break;
+                case 6: 
+                        if (token[0]) {
+                            strncpy(player->checkInTime, token, 49); 
+                            player->checkInTime[49] = '\0';
+                        }
+                        break;
+            }
+            token = strtok(NULL, ",");
+            field++;
+        }
+        if (token && token[0] != '\n' && token[0] != '\0') { 
+            int len = strlen(token);
+            if (len > 0 && token[len-1] == '\n') token[len-1] = '\0';
+            strncpy(player->status, token, 9); player->status[9] = '\0';
+        }
+
+
+        int valid = 1;
+        if (!isNumeric_Task2(player->playerID) || atoi(player->playerID) < 1000) valid = 0;
+        if (!player->playerName[0]) valid = 0;
+        if (!player->registrationType[0]) valid = 0;
+        if (!player->email[0]) valid = 0;
+
+        if (player->rank[0] == '\0') { 
+            if (strcmp(player->registrationType, "Early-Bird") == 0) player->rank[0] = 'A';
+            else if (strcmp(player->registrationType, "Wildcard") == 0) player->rank[0] = 'B';
+            else if (strcmp(player->registrationType, "Standard") == 0) player->rank[0] = 'C';
+            else if (strcmp(player->registrationType, "Last-Minute") == 0) player->rank[0] = 'D';
+            player->rank[1] = '\0';
+        }
+
+        if (valid) {
+            if (strcmp(player->status, "WAITLIST") == 0) {
+                pq->getWaitlistQueue()->enqueue(player);
+            } else {
+                pq->enqueue(player);
+            }
+        } else {
+            printf("Task 2: Invalid player data in CSV: ID %s, Name %s. Skipping.\n", player->playerID, player->playerName);
+            free(player);
+        }
+    }
+    fclose(file);
+    printf("Task 2: Player data loaded from %s. Main queue: %d, Waitlist: %d\n",
+           filename, pq->getSize(), pq->getWaitlistQueue()->getSize());
+}
+
+void writePlayersToCSV_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename) {
+    FILE* file = fopen(filename, "w");
+    if (!file) {
+        printf("Task 2: Error opening CSV file '%s' for writing!\n", filename);
+        return;
+    }
+
+    fprintf(file, "Player ID,Player Name,Registration Type,Email,Rank,Check-In,Time of Check-In,Status\n");
+    
+    Task2_RegistrationPriorityQueue temp_pq;
+    temp_pq.init();
+    char sanitized_buffer[100]; 
+    
+    while (!pq->isEmpty()) {
+        struct Task2_PlayerNode* player = pq->dequeue();
+        if (!player->playerID[0] || !player->playerName[0]) { 
+            free(player); 
+            continue;
+        }
+        sanitizeForCSV_Task2(sanitized_buffer, player->playerID, 10);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->playerName, 50);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->registrationType, 20);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->email, 100);
+        fprintf(file, "%s,", sanitized_buffer);
+        fprintf(file, "%c,%s,", player->rank[0], player->checkInStatus ? "YES" : "NO");
+        sanitizeForCSV_Task2(sanitized_buffer, player->checkInTime, 50);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->status, 10);
+        fprintf(file, "%s\n", sanitized_buffer);
+        temp_pq.enqueue(player); 
+    }
+    
+    while (!temp_pq.isEmpty()) {
+        pq->enqueue(temp_pq.dequeue());
+    }
+    
+    struct Task2_RegistrationQueue* waitlist = pq->getWaitlistQueue();
+    struct Task2_RegistrationQueue temp_waitlist;
+    temp_waitlist.init();
+    
+    while (!waitlist->isEmpty()) {
+        struct Task2_PlayerNode* player = waitlist->dequeue();
+        if (!player->playerID[0] || !player->playerName[0]) {
+            free(player);
+            continue;
+        }
+        sanitizeForCSV_Task2(sanitized_buffer, player->playerID, 10);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->playerName, 50);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->registrationType, 20);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->email, 100);
+        fprintf(file, "%s,", sanitized_buffer);
+        fprintf(file, "%c,%s,", player->rank[0], player->checkInStatus ? "YES" : "NO");
+        sanitizeForCSV_Task2(sanitized_buffer, player->checkInTime, 50);
+        fprintf(file, "%s,", sanitized_buffer);
+        sanitizeForCSV_Task2(sanitized_buffer, player->status, 10);
+        fprintf(file, "%s\n", sanitized_buffer);
+        temp_waitlist.enqueue(player);
+    }
+    
+    pq->setWaitlistQueue(&temp_waitlist); 
+    fclose(file);
+}
+
+void registerPlayer_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename) {
+    struct Task2_PlayerNode* player = (struct Task2_PlayerNode*)malloc(sizeof(struct Task2_PlayerNode));
+    player->ranking = 0;
+    player->teamID = 0;
+    player->checkInStatus = 0;
+    player->group = 0;
+    player->next = NULL;
+    strcpy(player->checkInTime, "N/A");
+    
+    int lastID = getLastPlayerID_Task2(filename);
+    sprintf(player->playerID, "%d", lastID + 1);
+    
+    printf("\n+------------------------------+\n");
+    printf("|      PLAYER REGISTRATION     |\n");
+    printf("+------------------------------+\n");
+    printf("Player ID: %s\n", player->playerID);
+    
+    printf("Enter Player Name: ");
+    fgets(player->playerName, 50, stdin);
+    player->playerName[strcspn(player->playerName, "\n")] = '\0';
+    
+    printf("Enter Registration Type (Early-Bird/Standard/Wildcard/Last-Minute): ");
+    char inputType[20];
+    fgets(inputType, 20, stdin);
+    inputType[strcspn(inputType, "\n")] = '\0';
+    
+    normalizeRegistrationType_Task2(player->registrationType, inputType, 20);
+    
+    if (strcmp(player->registrationType, "Early-Bird") == 0) {
+        player->rank[0] = 'A';
+    } else if (strcmp(player->registrationType, "Wildcard") == 0) {
+        player->rank[0] = 'B';
+    } else if (strcmp(player->registrationType, "Standard") == 0) {
+        player->rank[0] = 'C';
+    } else if (strcmp(player->registrationType, "Last-Minute") == 0) {
+        player->rank[0] = 'D';
+    } else {
+        printf("Invalid registration type '%s', defaulting to 'Standard'.\n", player->registrationType);
+        player->rank[0] = 'C'; 
+        strcpy(player->registrationType, "Standard");
+    }
+    player->rank[1] = '\0';
+    
+    printf("Enter Email: ");
+    fgets(player->email, 100, stdin);
+    player->email[strcspn(player->email, "\n")] = '\0';
+
+    int mainQueueSize = pq->getSize();
+    if (mainQueueSize < 16) { 
+        strcpy(player->status, "MAIN");
+        pq->enqueue(player);
+        printf("\nPlayer registered successfully! Rank assigned: %c. Total main queue: %d\n",
+               player->rank[0], pq->getSize());
+    } else {
+        strcpy(player->status, "WAITLIST");
+        pq->getWaitlistQueue()->enqueue(player);
+        printf("\nMain queue full. Player added to waitlist! Rank assigned: %c. Total waitlist: %d\n",
+               player->rank[0], pq->getWaitlistQueue()->getSize());
+    }
+    
+    writePlayersToCSV_Task2(pq, filename);
+    waitForEnter_Task2();
+}
+
+void checkInPlayer_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename) {
+    char playerID_input[10], continueCheckIn_input[10];
+    int found_flag;
+    struct Task2_PlayerNode* foundPlayer_ptr;
+
+    printf("\n+------------------------------+\n");
+    printf("|       PLAYER CHECK-IN         |\n");
+    printf("+------------------------------+\n");
+    
+    while (1) {
+        printf("Enter Player ID to check-in: ");
+        fgets(playerID_input, 10, stdin);
+        playerID_input[strcspn(playerID_input, "\n")] = '\0';
+        
+        while (!playerID_input[0]) {
+            printf("Player ID cannot be empty. Please enter Player ID: ");
+            fgets(playerID_input, 10, stdin);
+            playerID_input[strcspn(playerID_input, "\n")] = '\0';
+        }
+
+        Task2_RegistrationPriorityQueue temp_pq_checkin;
+        temp_pq_checkin.init();
+        found_flag = 0;
+        foundPlayer_ptr = NULL;
+
+        while (!pq->isEmpty()) {
+            struct Task2_PlayerNode* player = pq->dequeue();
+            if (strcmp(playerID_input, player->playerID) == 0) {
+                found_flag = 1;
+                foundPlayer_ptr = player;
+                if (!player->checkInStatus) {
+                    player->checkInStatus = 1;
+                    time_t now_time = time(NULL);
+                    struct tm* timeinfo_val = localtime(&now_time);
+                    char time_buffer[50];
+                    strftime(time_buffer, 50, "%Y-%m-%d %H:%M:%S", timeinfo_val);
+                    strncpy(player->checkInTime, time_buffer, 49);
+                    player->checkInTime[49] = '\0';
+                }
+            }
+            temp_pq_checkin.enqueue(player);
+        }
+        
+        while (!temp_pq_checkin.isEmpty()) {
+            pq->enqueue(temp_pq_checkin.dequeue());
+        }
+
+        if (found_flag) {
+            printf("Player %s (%s) checked in successfully at %s!\n",
+                   playerID_input, foundPlayer_ptr->playerName, foundPlayer_ptr->checkInTime);
+            writePlayersToCSV_Task2(pq, filename);
+        } else {
+            printf("Player %s not found in main queue!\n", playerID_input);
+        }
+
+        printf("\nDo you have more players to check in? (yes/no): ");
+        fgets(continueCheckIn_input, 10, stdin);
+        continueCheckIn_input[strcspn(continueCheckIn_input, "\n")] = '\0';
+        if (!isYesResponse_Task2(continueCheckIn_input)) break;
+    }
+
+    waitForEnter_Task2();
+}
+
+static void withdrawPlayerLogic_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* playerID_to_withdraw, const char* filename) {
+    Task2_RegistrationPriorityQueue temp_pq_withdraw;
+    temp_pq_withdraw.init();
+    int found_in_main = 0;
+    char withdrawnRank_val[2] = ""; 
+    char withdrawnName_val[50] = "";
+
+    while (!pq->isEmpty()) {
+        struct Task2_PlayerNode* player = pq->dequeue();
+        if (strcmp(player->playerID, playerID_to_withdraw) == 0) {
+            found_in_main = 1;
+            strcpy(withdrawnRank_val, player->rank);
+            strcpy(withdrawnName_val, player->playerName);
+            free(player); 
+        } else {
+            temp_pq_withdraw.enqueue(player);
+        }
+    }
+    
+    while (!temp_pq_withdraw.isEmpty()) {
+        pq->enqueue(temp_pq_withdraw.dequeue());
+    }
+
+    if (found_in_main) {
+        printf("Player %s (%s) withdrawn successfully from main queue.\n", playerID_to_withdraw, withdrawnName_val);
+        
+        struct Task2_RegistrationQueue* waitlist_ptr = pq->getWaitlistQueue();
+        struct Task2_RegistrationQueue temp_waitlist_processing;
+        temp_waitlist_processing.init();
+        int promoted_flag = 0;
+        struct Task2_PlayerNode* promotedPlayer_ptr = NULL;
+        
+        
+        struct Task2_PlayerNode* current_waitlist_player = waitlist_ptr->front;
+        struct Task2_PlayerNode* best_match_for_promotion = NULL;
+
+        
+        while(current_waitlist_player != NULL){
+            if(strcmp(current_waitlist_player->rank, withdrawnRank_val) == 0){
+                if(best_match_for_promotion == NULL ){ 
+                     best_match_for_promotion = current_waitlist_player;
+                }
+            }
+            current_waitlist_player = current_waitlist_player->next;
+        }
+
+
+        current_waitlist_player = waitlist_ptr->dequeue(); 
+        while(current_waitlist_player != NULL){
+            if(!promoted_flag && best_match_for_promotion != NULL && strcmp(current_waitlist_player->playerID, best_match_for_promotion->playerID) == 0){
+                promotedPlayer_ptr = current_waitlist_player;
+                strcpy(promotedPlayer_ptr->status, "MAIN");
+                pq->enqueue(promotedPlayer_ptr); 
+                promoted_flag = 1;
+                printf("Player %s (%s) promoted from waitlist to main queue.\n",
+                       promotedPlayer_ptr->playerID, promotedPlayer_ptr->playerName);
+            } else {
+                temp_waitlist_processing.enqueue(current_waitlist_player);
+            }
+            current_waitlist_player = waitlist_ptr->dequeue();
+        }
+        
+        pq->setWaitlistQueue(&temp_waitlist_processing); 
+        
+        if (!promoted_flag) {
+            printf("No suitable player (matching rank %s) found on waitlist for promotion, or waitlist is empty.\n", withdrawnRank_val);
+        }
+        
+        writePlayersToCSV_Task2(pq, filename);
+    } else {
+        printf("Player %s not found in main queue. No withdrawal action taken.\n", playerID_to_withdraw);
+    }
+}
+
+
+void handleWithdrawPlayer_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename) {
+    char playerID_input_withdraw[10];
+    
+    printf("\n+------------------------------+\n");
+    printf("|      PLAYER WITHDRAWAL       |\n");
+    printf("+------------------------------+\n");
+    printf("Enter Player ID to withdraw: ");
+    fgets(playerID_input_withdraw, 10, stdin);
+    playerID_input_withdraw[strcspn(playerID_input_withdraw, "\n")] = '\0';
+    
+    withdrawPlayerLogic_Task2(pq, playerID_input_withdraw, filename);
+    waitForEnter_Task2();
+}
+
+void displayWaitlist_Task2(struct Task2_RegistrationPriorityQueue* pq) {
+    printf("\n+------------------------------+\n");
+    printf("|        WAITLIST PLAYERS      |\n");
+    printf("+------------------------------+\n");
+    
+    struct Task2_RegistrationQueue* waitlist_display = pq->getWaitlistQueue();
+    if (waitlist_display->isEmpty()) {
+        printf("Waitlist is empty.\n");
+        waitForEnter_Task2();
+        return;
+    }
+    
+    printf("%-10s %-20s %-15s %-30s %-5s\n",
+           "Player ID", "Player Name", "Type", "Email", "Rank");
+    printf("--------------------------------------------------------------------------\n");
+    
+    struct Task2_RegistrationQueue temp_waitlist_display;
+    temp_waitlist_display.init();
+    
+    struct Task2_PlayerNode* current_node = waitlist_display->front;
+    while(current_node != NULL) {
+        printf("%-10s %-20s %-15s %-30s %-5c\n",
+               current_node->playerID, current_node->playerName, current_node->registrationType,
+               current_node->email, current_node->rank[0]);
+        
+        struct Task2_PlayerNode* new_copy_node = (struct Task2_PlayerNode*)malloc(sizeof(struct Task2_PlayerNode));
+        memcpy(new_copy_node, current_node, sizeof(struct Task2_PlayerNode));
+        new_copy_node->next = NULL;
+        temp_waitlist_display.enqueue(new_copy_node);
+        current_node = current_node->next;
+    }
+    
+    
+    pq->getWaitlistQueue()->destroy(); 
+    *(pq->getWaitlistQueue()) = temp_waitlist_display; 
+
+
+    waitForEnter_Task2();
+}
+
+
+void runCLI_TASK2() {
+    struct Task2_RegistrationPriorityQueue task2_pq;
+    task2_pq.init();
+    const char* task2_csv_filename = "Player_Registration.csv";
+    
+    printf("\n\n--- Accessing: Player Registration & Queueing (Task 2) ---\n");
+    printf("+----------------------------------------------------+\n");
+    printf("|      APUEC Player Registration System (Task 2)     |\n");
+    printf("+----------------------------------------------------+\n");
+    printf("Loading player data for Task 2 from '%s'...\n", task2_csv_filename);
+    readPlayersFromCSV_Task2(&task2_pq, task2_csv_filename);
+    printf("Current number of registered players in main queue (Task 2): %d\n", task2_pq.getSize());
+    printf("Current number of players in waitlist (Task 2): %d\n", task2_pq.getWaitlistQueue()->getSize());
+
+
+    int task2_choice;
+    do {
+        printf("\n+------------------------------------------+\n");
+        printf("|           Task 2: Main Menu              |\n");
+        printf("+------------------------------------------+\n");
+        printf("| 1. Register Player                       |\n");
+        printf("| 2. Check-In Player                       |\n");
+        printf("| 3. Withdraw Player                       |\n");
+        printf("| 4. View Waitlist                         |\n");
+        printf("| 5. Return to APUEC Main Menu             |\n");
+        printf("+------------------------------------------+\n");
+        printf("Enter choice for Task 2 (1-5): ");
+        
+        if (scanf("%d", &task2_choice) != 1) {
+            clearInputBuffer_Task2(); 
+            printf("Invalid input! Please enter a number between 1 and 5 for Task 2.\n");
+            continue;
+        }
+        clearInputBuffer_Task2(); 
+
+        switch (task2_choice) {
+            case 1: registerPlayer_Task2(&task2_pq, task2_csv_filename); break;
+            case 2: checkInPlayer_Task2(&task2_pq, task2_csv_filename); break;
+            case 3: handleWithdrawPlayer_Task2(&task2_pq, task2_csv_filename); break;
+            case 4: displayWaitlist_Task2(&task2_pq); break;
+            case 5: printf("\nReturning to APUEC Main Menu from Task 2...\n"); break;
+            default: printf("Invalid choice for Task 2! Please enter a number between 1 and 5.\n"); break;
+        }
+    } while (task2_choice != 5);
+
+    
+    task2_pq.earlyBirdQueue.destroy();
+    task2_pq.wildcardQueue.destroy();
+    task2_pq.standardQueue.destroy();
+    task2_pq.lastMinuteQueue.destroy();
+    task2_pq.waitlistQueue.destroy();
+}
+
+
 void runTask3_SpectatorManagement() {
     cout << "\n--- Spectator Management (Task 3) ---" << endl;
     cout << "This functionality is a placeholder." << endl;
@@ -893,7 +1557,7 @@ void runTask3_SpectatorManagement() {
 }
 
 
-// Task 4: Result Logging Implementations (using std:: prefix)
+
 Task4_MatchResult::Task4_MatchResult() : match_id(0), group_id(0), round(0), player1_id(0), player2_id(0), winner_id(0) {}
 
 Task4_MatchResult::Task4_MatchResult(int mid, const std::string& st, int gid, int r, int p1, int p2,
@@ -964,7 +1628,7 @@ Task4_PlayerStats::Task4_PlayerStats() : player_id(0), total_matches(0), wins(0)
 
 Task4_PlayerStats::Task4_PlayerStats(int pid, const std::string& n, const std::string& r_val, const std::string& c, const std::string& reg_time)
     : player_id(pid), name(n), rank(r_val), contact(c), registration_time(reg_time),
-      total_matches(0), wins(0), losses(0), avg_score(0.0) {} // Renamed r to r_val
+      total_matches(0), wins(0), losses(0), avg_score(0.0) {} 
 
 Task4_GameResultManager::Task4_GameResultManager(int mp)
     : task4_max_players(mp), current_player_count(0), next_match_id(1) {
@@ -980,17 +1644,17 @@ bool Task4_GameResultManager::loadPlayerData(const std::string& filename) {
     if (!file.is_open()) {
         std::cerr << "Warning: Cannot open players file '" << filename << "' for Task 4\n"; return false;
     }
-    std::string line_str; // Renamed line
+    std::string line_str; 
     int loaded_count = 0; bool header_skipped = false;
     while (std::getline(file, line_str) && current_player_count < task4_max_players) {
         if (line_str.empty() || line_str.find_first_not_of(" \t\r\n") == std::string::npos) continue;
         if (!header_skipped) { header_skipped = true; continue; }
 
-        std::string tokens[6]; // Player ID,Player Name,Registration Type,Email,Rank,Check-In
+        std::string tokens[6]; 
         splitCSVLine(line_str, tokens, 6);
 
         if (tokens[0].empty()) { std::cerr << "Warning (Task 4): Empty player ID in line: " << line_str << "\n"; continue; }
-        int player_id_val; // Renamed player_id
+        int player_id_val; 
         try { player_id_val = std::stoi(tokens[0]); }
         catch (const std::exception& e) { std::cerr << "Warning (Task 4): Invalid player ID '" << tokens[0] << "'. Error: " << e.what() << "\n"; continue; }
 
@@ -1014,7 +1678,7 @@ bool Task4_GameResultManager::loadMatchHistory(const std::string& filename) {
         if (line_str.empty() || line_str.find_first_not_of(" \t\r\n") == std::string::npos) continue;
         if (!header_skipped) { header_skipped = true; continue; }
 
-        std::string tokens[10]; // match_id,stage,group_id,round,player1_id,player2_id,scheduled_time,status,winner_id,score
+        std::string tokens[10]; 
         splitCSVLine(line_str, tokens, 10);
 
         if (tokens[0].empty() || tokens[4].empty() || tokens[5].empty()) { std::cerr << "Warning (Task 4): Missing required fields in match line: " << line_str << "\n"; continue; }
@@ -1037,10 +1701,8 @@ bool Task4_GameResultManager::loadMatchHistory(const std::string& filename) {
         match_history.enqueue(match_res);
         recent_matches.push(match_res);
 
-        if (winner_id_val != 0) { // winner_id_val is the ID of the winner
-             // The original parseScore(tokens[9]) gets P1's score from "P1score-P2score"
-             // This is potentially problematic for P2's average score calculation if not handled.
-             // For now, P1's score part is used for both player's updatePlayerStats call if they were involved.
+        if (winner_id_val != 0) { 
+             
             double p1_score_from_string = 0.0;
             double p2_score_from_string = 0.0;
             size_t dash_pos = tokens[9].find('-');
@@ -1111,7 +1773,7 @@ void Task4_GameResultManager::displayRecentMatches(int count) {
     std::cout << std::string(100, '=') << "\n";
 }
 
-void Task4_GameResultManager::displayPlayerStats(int player_id_val) { // Renamed player_id
+void Task4_GameResultManager::displayPlayerStats(int player_id_val) { 
     int index = findPlayerIndex(player_id_val);
     if (index == -1) {
         std::cout << "\nPlayer not found (Task 4).\n"; return;
@@ -1136,14 +1798,14 @@ void Task4_GameResultManager::displayAllPlayerStats() {
               << std::setw(13) << "Win Rate" << std::setw(13) << "Avg Score" << "\n"
               << std::string(95, '-') << "\n";
     for (int i = 0; i < current_player_count; i++) {
-        const Task4_PlayerStats& ps = player_stats[i]; // Renamed player_stat_item to ps
+        const Task4_PlayerStats& ps = player_stats[i]; 
         std::string win_rate_str = "N/A";
         if (ps.total_matches > 0) {
-            double wr = (static_cast<double>(ps.wins) / ps.total_matches) * 100.0; // Renamed win_rate_val to wr
+            double wr = (static_cast<double>(ps.wins) / ps.total_matches) * 100.0; 
             std::ostringstream oss; oss << std::fixed << std::setprecision(1) << wr << "%";
             win_rate_str = oss.str();
         }
-        std::ostringstream as_oss; as_oss << std::fixed << std::setprecision(2) << ps.avg_score; // Renamed avg_score_oss_item to as_oss
+        std::ostringstream as_oss; as_oss << std::fixed << std::setprecision(2) << ps.avg_score; 
         std::cout << std::left << std::setw(5) << ps.player_id
                   << std::setw(19) << (ps.name.length()>17?ps.name.substr(0,14)+"...":ps.name)
                   << std::setw(13) << (ps.rank.length()>11?ps.rank.substr(0,8)+"...":ps.rank)
@@ -1154,23 +1816,23 @@ void Task4_GameResultManager::displayAllPlayerStats() {
     std::cout << std::string(95, '-') << "\n";
 }
 
-void Task4_GameResultManager::queryMatchesByPlayer(int player_id_val) { // Renamed player_id
+void Task4_GameResultManager::queryMatchesByPlayer(int player_id_val) { 
     int player_idx = findPlayerIndex(player_id_val);
     if (player_idx == -1) { std::cout << "\nPlayer not found (Task 4).\n"; return; }
     std::cout << "\nTASK 4: MATCHES FOR PLAYER " << player_id_val << " (" << player_stats[player_idx].name << ")\n";
-    bool found = false; // Renamed found_any_matches
+    bool found = false; 
     std::cout << std::left << std::setw(9) << "MatchID" << std::setw(19) << "Opponent" << std::setw(13) << "Stage"
               << std::setw(11) << "Result" << std::setw(13) << "Score" << std::setw(13) << "Date"
               << std::setw(13) << "Round" << "\n" << std::string(90, '-') << "\n";
     for (int i = 0; i < match_history.size(); i++) {
-        Task4_MatchResult mi; if (match_history.getAt(i, mi)) { // Renamed match_item to mi
+        Task4_MatchResult mi; if (match_history.getAt(i, mi)) { 
             if (mi.player1_id == player_id_val || mi.player2_id == player_id_val) {
                 found = true;
-                int opp_id = (mi.player1_id == player_id_val) ? mi.player2_id : mi.player1_id; // Renamed opponent_id_val
-                int opp_idx = findPlayerIndex(opp_id); // Renamed opponent_idx
-                std::string opp_name = (opp_idx != -1) ? player_stats[opp_idx].name : "ID:" + std::to_string(opp_id); // Renamed opponent_name_str
+                int opp_id = (mi.player1_id == player_id_val) ? mi.player2_id : mi.player1_id; 
+                int opp_idx = findPlayerIndex(opp_id); 
+                std::string opp_name = (opp_idx != -1) ? player_stats[opp_idx].name : "ID:" + std::to_string(opp_id); 
                 if(opp_name.length() > 17) opp_name = opp_name.substr(0,14) + "...";
-                std::string res_str = "DRAW"; // Renamed result_str
+                std::string res_str = "DRAW"; 
                 if (mi.winner_id == player_id_val) res_str = "WIN";
                 else if (mi.winner_id != 0) res_str = "LOSS";
                 std::string date_val = extractDateFromScheduledTime(mi.scheduled_time);
@@ -1191,29 +1853,29 @@ void Task4_GameResultManager::queryMatchesByPlayer(int player_id_val) { // Renam
 
 void Task4_GameResultManager::queryMatchesByStage(const std::string& stage_query) {
     std::cout << "\nTASK 4: MATCHES IN STAGE: " << stage_query << "\n";
-    bool found = false; // Renamed found_stage_matches
+    bool found = false; 
     std::cout << std::left << std::setw(9) << "MatchID" << std::setw(26) << "Players" << std::setw(16) << "Winner"
               << std::setw(13) << "Score" << std::setw(13) << "Round" << std::setw(13) << "Date" << "\n"
               << std::string(90, '-') << "\n";
     for (int i = 0; i < match_history.size(); i++) {
-        Task4_MatchResult mr; if (match_history.getAt(i, mr)) { // Renamed match_rec to mr
+        Task4_MatchResult mr; if (match_history.getAt(i, mr)) { 
             if (mr.stage == stage_query) {
                 found = true;
-                int p1_idx = findPlayerIndex(mr.player1_id); // Renamed p1_rec_idx
-                int p2_idx = findPlayerIndex(mr.player2_id); // Renamed p2_rec_idx
-                std::string p1n = (p1_idx != -1) ? player_stats[p1_idx].name : "ID:" + std::to_string(mr.player1_id); // Renamed p1_rec_name
-                std::string p2n = (p2_idx != -1) ? player_stats[p2_idx].name : "ID:" + std::to_string(mr.player2_id); // Renamed p2_rec_name
+                int p1_idx = findPlayerIndex(mr.player1_id); 
+                int p2_idx = findPlayerIndex(mr.player2_id); 
+                std::string p1n = (p1_idx != -1) ? player_stats[p1_idx].name : "ID:" + std::to_string(mr.player1_id); 
+                std::string p2n = (p2_idx != -1) ? player_stats[p2_idx].name : "ID:" + std::to_string(mr.player2_id); 
                 if(p1n.length()>10) p1n = p1n.substr(0,9)+"."; if(p2n.length()>10) p2n = p2n.substr(0,9)+".";
-                std::string players_s = p1n + " vs " + p2n; // Renamed players_rec_str
+                std::string players_s = p1n + " vs " + p2n; 
                 if(players_s.length() > 24) players_s = players_s.substr(0,21)+"...";
 
-                std::string win_name = "Draw/None"; // Renamed winner_rec_name
+                std::string win_name = "Draw/None"; 
                 if (mr.winner_id != 0) {
-                    int win_idx = findPlayerIndex(mr.winner_id); // Renamed winner_rec_idx
+                    int win_idx = findPlayerIndex(mr.winner_id); 
                     win_name = (win_idx != -1) ? player_stats[win_idx].name : "ID:" + std::to_string(mr.winner_id);
                     if(win_name.length() > 14) win_name = win_name.substr(0,11)+"...";
                 }
-                std::string date_s = extractDateFromScheduledTime(mr.scheduled_time); // Renamed date_rec_val
+                std::string date_s = extractDateFromScheduledTime(mr.scheduled_time); 
                 if(date_s.empty()) date_s = "Unknown";
                 std::cout << std::left << std::setw(9) << mr.match_id
                           << std::setw(26) << players_s
@@ -1243,7 +1905,7 @@ void Task4_GameResultManager::displayMenu_Task4() {
 void Task4_GameResultManager::addMatchResult(int match_id, const char* stage, int group_id, int round, 
                                             int player1_id, int player2_id, const char* scheduled_time, 
                                             const char* status, int winner_id, const char* score) {
-    // Validate player IDs
+    
     int p1_index = findPlayerIndex(player1_id);
     int p2_index = findPlayerIndex(player2_id);
     if (p1_index == -1 || p2_index == -1) {
@@ -1252,20 +1914,20 @@ void Task4_GameResultManager::addMatchResult(int match_id, const char* stage, in
         return;
     }
 
-    // Create match result
+    
     Task4_MatchResult match;
     match.match_id = match_id;
-    match.stage = stage; // Using string assignment instead of strncpy
+    match.stage = stage; 
     match.group_id = group_id;
     match.round = round;
     match.player1_id = player1_id;
     match.player2_id = player2_id;
-    match.scheduled_time = scheduled_time; // Using string assignment instead of strncpy
-    match.status = status; // Using string assignment instead of strncpy
+    match.scheduled_time = scheduled_time; 
+    match.status = status; 
     match.winner_id = winner_id;
-    match.score = score; // Using string assignment instead of strncpy
+    match.score = score; 
 
-    // Add to Stack and Queue
+    
     if (!recent_matches.push(match)) {
         std::cerr << "Error (Task 4): Failed to add match " << match_id << " to recent_matches Stack\n";
     }
@@ -1273,15 +1935,15 @@ void Task4_GameResultManager::addMatchResult(int match_id, const char* stage, in
         std::cerr << "Error (Task 4): Failed to add match " << match_id << " to match_history Queue\n";
     }
 
-    // Update next_match_id
+    
     if (match_id >= next_match_id) {
         next_match_id = match_id + 1;
     }
 
-    // Update player stats if match is completed
+    
     if (winner_id != 0 && strcmp(status, "completed") == 0) {
         double p1_score = 0.0, p2_score = 0.0;
-        // Parse score string to get individual scores
+        
         std::string score_str(score);
         size_t dash_pos = score_str.find('-');
         if (dash_pos != std::string::npos) {
@@ -1302,17 +1964,17 @@ void Task4_GameResultManager::addMatchResult(int match_id, const char* stage, in
 
 void Task4_GameResultManager::runProgram() {
     std::cout << "=== Task 4: Game Result System Starting ===\n";
-    current_player_count = 0; // Reset before loading
-    while(!match_history.isEmpty()) { Task4_MatchResult temp; match_history.dequeue(temp); } // Clear queue
-    while(!recent_matches.isEmpty()) { Task4_MatchResult temp; recent_matches.pop(temp); } // Clear stack
+    current_player_count = 0; 
+    while(!match_history.isEmpty()) { Task4_MatchResult temp; match_history.dequeue(temp); } 
+    while(!recent_matches.isEmpty()) { Task4_MatchResult temp; recent_matches.pop(temp); } 
 
     std::cout << "Task 4: Loading player data (players.csv)...\n";
-    loadPlayerData("players.csv");
+    loadPlayerData("Player_Registration.csv"); 
     std::cout << "Task 4: Loading match history (matches.csv)...\n";
     loadMatchHistory("matches.csv");
     std::cout << "Task 4 System ready!\n";
 
-    int choice_val; bool exit_cli = false; // Renamed choice_task4, exit_task4_cli
+    int choice_val; bool exit_cli = false; 
     while (!exit_cli) {
         displayMenu_Task4();
         if (!(std::cin >> choice_val)) {
@@ -1336,7 +1998,7 @@ void Task4_GameResultManager::runProgram() {
                 break;
             }
             case 5: {
-                std::cout << "Enter stage name (Task 4): "; std::string s_name; // Renamed stage_name_query
+                std::cout << "Enter stage name (Task 4): "; std::string s_name; 
                 std::getline(std::cin, s_name); queryMatchesByStage(s_name);
                 break;
             }
@@ -1348,11 +2010,11 @@ void Task4_GameResultManager::runProgram() {
                 std::cout << "Match ID: "; std::cin >> match_id;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                 std::cout << "Stage (e.g., group, knockout): "; std::cin.getline(stage, sizeof(stage));
-                std::cout << "Group ID: "; std::cin >> group_id;
+                std::cout << "Group ID (0 if none): "; std::cin >> group_id;
                 std::cout << "Round: "; std::cin >> round;
                 std::cout << "Player 1 ID: "; std::cin >> player1_id;
                 std::cout << "Player 2 ID: "; std::cin >> player2_id;
-                std::cout << "Winner ID (0 for none): "; std::cin >> winner_id;
+                std::cout << "Winner ID (0 for none/draw): "; std::cin >> winner_id;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                 std::cout << "Scheduled Time (YYYY-MM-DD HH:MM): "; std::cin.getline(scheduled_time, sizeof(scheduled_time));
                 std::cout << "Status (e.g., scheduled, completed): "; std::cin.getline(status, sizeof(status));
@@ -1366,7 +2028,7 @@ void Task4_GameResultManager::runProgram() {
         }
         if (!exit_cli && choice_val != -1) {
             std::cout << "\n(Task 4: Press Enter to return to Task 4 menu...)";
-            // std::cin.get(); // Can be problematic
+            
         }
     }
 }
@@ -1383,7 +2045,7 @@ std::string Task4_GameResultManager::extractDateFromScheduledTime(const std::str
     return "";
 }
 
-void Task4_GameResultManager::splitCSVLine(const std::string& line_str, std::string tokens[], int max_tokens) { // Renamed line
+void Task4_GameResultManager::splitCSVLine(const std::string& line_str, std::string tokens[], int max_tokens) { 
     std::istringstream stream(line_str); std::string token; int count = 0;
     while (std::getline(stream, token, ',') && count < max_tokens) {
         size_t start = token.find_first_not_of(" \t\r\n"); size_t end = token.find_last_not_of(" \t\r\n");
@@ -1392,26 +2054,26 @@ void Task4_GameResultManager::splitCSVLine(const std::string& line_str, std::str
     while (count < max_tokens) tokens[count++] = "";
 }
 
-int Task4_GameResultManager::findPlayerIndex(int player_id_val) { // Renamed player_id
+int Task4_GameResultManager::findPlayerIndex(int player_id_val) { 
     for (int i = 0; i < current_player_count; i++) {
         if (player_stats[i].player_id == player_id_val) return i;
     }
     return -1;
 }
 
-double Task4_GameResultManager::parseScore(const std::string& score_str) { // This still only parses the first part for "S1-S2"
+double Task4_GameResultManager::parseScore(const std::string& score_str) { 
     size_t dash_pos = score_str.find('-');
     if (dash_pos == std::string::npos) return 0.0;
-    std::string first_score = score_str.substr(0, dash_pos); // Renamed first_score_str
+    std::string first_score = score_str.substr(0, dash_pos); 
     size_t start = first_score.find_first_not_of(" \t"); size_t end = first_score.find_last_not_of(" \t");
     if (start != std::string::npos) first_score = first_score.substr(start, end - start + 1); else first_score = "";
     try { return std::stod(first_score); }
     catch (const std::exception&) { return 0.0; }
 }
 
-void Task4_GameResultManager::updatePlayerStats(int player_id_val, bool is_winner, double score_val) { // Renamed player_id, score_val
+void Task4_GameResultManager::updatePlayerStats(int player_id_val, bool is_winner, double score_val) { 
     int index = findPlayerIndex(player_id_val); if (index == -1) return;
-    Task4_PlayerStats& ps_ref = player_stats[index]; // Renamed player_stat_ref
+    Task4_PlayerStats& ps_ref = player_stats[index]; 
     ps_ref.total_matches++;
     if (is_winner) ps_ref.wins++; else ps_ref.losses++;
     if (ps_ref.total_matches == 1) ps_ref.avg_score = score_val;
@@ -1419,7 +2081,7 @@ void Task4_GameResultManager::updatePlayerStats(int player_id_val, bool is_winne
 }
 
 
-// Main function for the Integrated System
+
 void displayIntegratedMainMenu() {
     cout << "\n\n####################################################\n"
          << "### ASIA PACIFIC UNIVERSITY ESPORTS CHAMPIONSHIP ###\n"
@@ -1427,7 +2089,7 @@ void displayIntegratedMainMenu() {
          << "####################################################\n"
          << "Please select a system module:\n"
          << "1. Tournament Management & Match Scheduling (Task 1)\n"
-         << "2. Player Registration (Task 2 - Placeholder)\n"
+         << "2. Player Registration & Queueing (Task 2)\n"
          << "3. Spectator Management (Task 3 - Placeholder)\n"
          << "4. Result Logging & Performance History (Task 4)\n"
          << "0. Exit Application\n"
@@ -1438,10 +2100,10 @@ int main() {
     srand(time(nullptr));
 
     Tournament task1_tournamentManager;
-    Task4_GameResultManager task4_gameResultManager(100);
+    Task4_GameResultManager task4_gameResultManager(100); 
 
     bool task1Initialized = false;
-    int choice_val; // Renamed choice
+    int choice_val; 
     bool exitApplication = false;
 
     while (!exitApplication) {
@@ -1452,7 +2114,7 @@ int main() {
             cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n');
             cout << "Invalid input. Please enter a number." << endl; choice_val = -1;
         } else {
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); 
         }
 
         switch (choice_val) {
@@ -1468,7 +2130,9 @@ int main() {
                 task1_tournamentManager.runCLI_TASK1();
                 cout << "\n--- Returned from Task 1 ---\n";
                 break;
-            case 2: runTask2_PlayerRegistration(); break;
+            case 2: 
+                runCLI_TASK2(); 
+                break;
             case 3: runTask3_SpectatorManagement(); break;
             case 4:
                 cout << "\n--- Accessing: Result Logging & Performance History (Task 4) ---\n";
@@ -1485,7 +2149,7 @@ int main() {
         }
         if (!exitApplication && choice_val != -1) {
             cout << "\n(Main Menu: Press Enter to continue or if stuck...)";
-            // cin.get(); // Input handling can be tricky here
+            
         }
     }
     return 0;

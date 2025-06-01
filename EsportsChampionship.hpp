@@ -1,7 +1,7 @@
+// EsportsChampionship.hpp
 #ifndef ESPORTSCHAMPIONSHIP_HPP
 #define ESPORTSCHAMPIONSHIP_HPP
 
-// Common Standard Includes
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,10 +11,11 @@
 #include <ctime>
 #include <iomanip>
 #include <limits>
-#include <algorithm> // For std::min (used in Task 4)
-// #include <stdexcept> // For std::stoi, std::stod exceptions (used in Task 4)
+#include <algorithm>
+#include <cstdio> 
+#include <cctype> 
 
-// Forward declarations
+
 class Player;
 class Match;
 class Group;
@@ -29,7 +30,61 @@ struct Task4_PlayerStats;
 class Task4_GameResultManager;
 
 
-// Task 1: Match Scheduling
+struct Task2_PlayerNode {
+    char playerID[10];
+    char playerName[50];
+    int ranking;
+    char registrationType[20];
+    char email[100];
+    int teamID;
+    int checkInStatus;
+    int group;
+    char rank[2];
+    char checkInTime[50];
+    char status[10];
+    struct Task2_PlayerNode* next;
+};
+
+struct Task2_RegistrationQueue {
+    struct Task2_PlayerNode* front;
+    struct Task2_PlayerNode* rear;
+    int size;
+
+    void init();
+    int isEmpty();
+    void enqueue(struct Task2_PlayerNode* player);
+    struct Task2_PlayerNode* dequeue();
+    struct Task2_PlayerNode* peek();
+    int getSize();
+    void destroy();
+};
+
+struct Task2_RegistrationPriorityQueue {
+    struct Task2_RegistrationQueue earlyBirdQueue;
+    struct Task2_RegistrationQueue wildcardQueue;
+    struct Task2_RegistrationQueue standardQueue;
+    struct Task2_RegistrationQueue lastMinuteQueue;
+    struct Task2_RegistrationQueue waitlistQueue;
+    int size;
+
+    void init();
+    void enqueue(struct Task2_PlayerNode* player);
+    struct Task2_PlayerNode* dequeue();
+    int isEmpty();
+    int getSize();
+    struct Task2_RegistrationQueue* getWaitlistQueue();
+    void setWaitlistQueue(struct Task2_RegistrationQueue* q);
+};
+
+void runCLI_TASK2();
+void registerPlayer_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename);
+void checkInPlayer_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename);
+void handleWithdrawPlayer_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename);
+void readPlayersFromCSV_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename);
+void writePlayersToCSV_Task2(struct Task2_RegistrationPriorityQueue* pq, const char* filename);
+void displayWaitlist_Task2(struct Task2_RegistrationPriorityQueue* pq);
+
+
 class Player {
 public:
     Player(int _id, const char* _name, const char* _rank, const char* _registrationType, int _ranking,
@@ -73,6 +128,7 @@ public:
     ~MatchQueue();
     void enqueue(Match* match);
     Match* dequeue();
+    Match* peek() const;
     bool isEmpty() const;
     int getSize() const;
 private:
@@ -159,9 +215,9 @@ private:
     int id;
     char rankType[2];
     char registrationType[30];
-    Player* players[4]; // Max 4 players per group
+    Player* players[4];
     int playerCount;
-    Match* matches[3]; // 2 semifinals, 1 final
+    Match* matches[3];
     int matchCount;
     Player* winner;
     bool completed;
@@ -213,7 +269,6 @@ private:
 };
 
 
-// Task 4: Result Logging
 const int TASK4_MAX_CAPACITY = 100;
 
 struct Task4_MatchResult {
@@ -285,23 +340,23 @@ public:
     Task4_GameResultManager(int max_players = 100);
     ~Task4_GameResultManager();
 
-    bool loadPlayerData(const std::string& filename); // Note: This still uses std::string for file I/O, see below
+    bool loadPlayerData(const std::string& filename);
     bool loadMatchHistory(const std::string& filename);
     void displayRecentMatches(int count = 5);
     void displayPlayerStats(int player_id);
     void displayAllPlayerStats();
     void queryMatchesByPlayer(int player_id);
-    void queryMatchesByStage(const std::string& stage); // Note: This also needs fixing, see below
-    void addMatchResult(int match_id, const char* stage, int group_id, int round, 
-                       int player1_id, int player2_id, const char* scheduled_time, 
-                       const char* status, int winner_id, const char* score); // Updated
+    void queryMatchesByStage(const std::string& stage);
+    void addMatchResult(int match_id, const char* stage, int group_id, int round,
+                       int player1_id, int player2_id, const char* scheduled_time,
+                       const char* status, int winner_id, const char* score);
     void runProgram();
 
 private:
-    std::string extractDateFromScheduledTime(const std::string& scheduled_time); // Needs fixing
-    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens); // Needs fixing
+    std::string extractDateFromScheduledTime(const std::string& scheduled_time);
+    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
     int findPlayerIndex(int player_id);
-    double parseScore(const std::string& score_str); // Needs fixing
+    double parseScore(const std::string& score_str);
     void updatePlayerStats(int player_id, bool is_winner, double score);
     void displayMenu_Task4();
 
