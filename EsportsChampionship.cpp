@@ -1230,20 +1230,78 @@ void Task4_GameResultManager::queryMatchesByStage(const std::string& stage_query
 
 void Task4_GameResultManager::displayMenu_Task4() {
     std::cout << "\nAPUEC MANAGEMENT SYSTEM (TASK 4)\nGame Result Logging & Performance History\n"
-              << "1. Display Recent Matches (Last 5)\n2. Display All Player Statistics\n"
-              << "3. Display Specific Player Statistics\n4. Query Matches by Player\n"
-              << "5. Query Matches by Stage\n0. Return to Main Menu\n"
+              << "1. Display Recent Matches (Last 5)\n"
+              << "2. Display All Player Statistics\n"
+              << "3. Display Specific Player Statistics\n"
+              << "4. Query Matches by Player\n"
+              << "5. Query Matches by Stage\n"
+              << "6. Add New Match Result\n"
+              << "0. Return to Main Menu\n"
               << "Enter your choice (Task 4): ";
+}
+
+void Task4_GameResultManager::addMatchResult(int match_id, const char* stage, int group_id, int round, 
+                                            int player1_id, int player2_id, const char* scheduled_time, 
+                                            const char* status, int winner_id, const char* score) {
+    // Validate player IDs
+    int p1_index = findPlayerIndex(player1_id);
+    int p2_index = findPlayerIndex(player2_id);
+    if (p1_index == -1 || p2_index == -1) {
+        std::cerr << "Error (Task 4): Invalid player ID(s) - Player1: " << player1_id 
+                  << ", Player2: " << player2_id << "\n";
+        return;
+    }
+
+    // Create match result
+    Task4_MatchResult match;
+    match.match_id = match_id;
+    match.stage = stage; // Using string assignment instead of strncpy
+    match.group_id = group_id;
+    match.round = round;
+    match.player1_id = player1_id;
+    match.player2_id = player2_id;
+    match.scheduled_time = scheduled_time; // Using string assignment instead of strncpy
+    match.status = status; // Using string assignment instead of strncpy
+    match.winner_id = winner_id;
+    match.score = score; // Using string assignment instead of strncpy
+
+    // Add to Stack and Queue
+    if (!recent_matches.push(match)) {
+        std::cerr << "Error (Task 4): Failed to add match " << match_id << " to recent_matches Stack\n";
+    }
+    if (!match_history.enqueue(match)) {
+        std::cerr << "Error (Task 4): Failed to add match " << match_id << " to match_history Queue\n";
+    }
+
+    // Update next_match_id
+    if (match_id >= next_match_id) {
+        next_match_id = match_id + 1;
+    }
+
+    // Update player stats if match is completed
+    if (winner_id != 0 && strcmp(status, "completed") == 0) {
+        double p1_score = 0.0, p2_score = 0.0;
+        // Parse score string to get individual scores
+        std::string score_str(score);
+        size_t dash_pos = score_str.find('-');
+        if (dash_pos != std::string::npos) {
+            try { 
+                p1_score = std::stod(score_str.substr(0, dash_pos)); 
+            } catch (...) {}
+            try { 
+                p2_score = std::stod(score_str.substr(dash_pos + 1)); 
+            } catch (...) {}
+        }
+        updatePlayerStats(player1_id, (winner_id == player1_id), p1_score);
+        updatePlayerStats(player2_id, (winner_id == player2_id), p2_score);
+    }
+
+    std::cout << "Task 4: Added match " << match_id << " (" << player_stats[p1_index].name 
+              << " vs " << player_stats[p2_index].name << ") to results\n";
 }
 
 void Task4_GameResultManager::runProgram() {
     std::cout << "=== Task 4: Game Result System Starting ===\n";
-    // Data loading is done once when manager is constructed or first time runProgram is called.
-    // To ensure it loads fresh data if runProgram can be re-entered, consider a loaded flag or clear & reload.
-    // For this version, loadPlayerData and loadMatchHistory will attempt to load files.
-    // If they were already loaded and data structures populated, this might lead to duplicates or need clearing.
-    // Simplified: Assume they are called once or are idempotent (safe to call multiple times).
-    // Resetting counts for reload:
     current_player_count = 0; // Reset before loading
     while(!match_history.isEmpty()) { Task4_MatchResult temp; match_history.dequeue(temp); } // Clear queue
     while(!recent_matches.isEmpty()) { Task4_MatchResult temp; recent_matches.pop(temp); } // Clear stack
@@ -1280,6 +1338,27 @@ void Task4_GameResultManager::runProgram() {
             case 5: {
                 std::cout << "Enter stage name (Task 4): "; std::string s_name; // Renamed stage_name_query
                 std::getline(std::cin, s_name); queryMatchesByStage(s_name);
+                break;
+            }
+            case 6: {
+                std::cout << "Enter match details (Task 4):\n";
+                int match_id, group_id, round, player1_id, player2_id, winner_id;
+                char stage[20], scheduled_time[20], status[20], score[20];
+
+                std::cout << "Match ID: "; std::cin >> match_id;
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Stage (e.g., group, knockout): "; std::cin.getline(stage, sizeof(stage));
+                std::cout << "Group ID: "; std::cin >> group_id;
+                std::cout << "Round: "; std::cin >> round;
+                std::cout << "Player 1 ID: "; std::cin >> player1_id;
+                std::cout << "Player 2 ID: "; std::cin >> player2_id;
+                std::cout << "Winner ID (0 for none): "; std::cin >> winner_id;
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Scheduled Time (YYYY-MM-DD HH:MM): "; std::cin.getline(scheduled_time, sizeof(scheduled_time));
+                std::cout << "Status (e.g., scheduled, completed): "; std::cin.getline(status, sizeof(status));
+                std::cout << "Score (e.g., 1-0): "; std::cin.getline(score, sizeof(score));
+
+                addMatchResult(match_id, stage, group_id, round, player1_id, player2_id, scheduled_time, status, winner_id, score);
                 break;
             }
             case 0: exit_cli = true; std::cout << "Returning to main APUEC menu from Task 4.\n"; break;

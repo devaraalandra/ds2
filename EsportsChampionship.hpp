@@ -285,20 +285,23 @@ public:
     Task4_GameResultManager(int max_players = 100);
     ~Task4_GameResultManager();
 
-    bool loadPlayerData(const std::string& filename);
+    bool loadPlayerData(const std::string& filename); // Note: This still uses std::string for file I/O, see below
     bool loadMatchHistory(const std::string& filename);
     void displayRecentMatches(int count = 5);
     void displayPlayerStats(int player_id);
     void displayAllPlayerStats();
     void queryMatchesByPlayer(int player_id);
-    void queryMatchesByStage(const std::string& stage);
+    void queryMatchesByStage(const std::string& stage); // Note: This also needs fixing, see below
+    void addMatchResult(int match_id, const char* stage, int group_id, int round, 
+                       int player1_id, int player2_id, const char* scheduled_time, 
+                       const char* status, int winner_id, const char* score); // Updated
     void runProgram();
 
 private:
-    std::string extractDateFromScheduledTime(const std::string& scheduled_time);
-    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens);
+    std::string extractDateFromScheduledTime(const std::string& scheduled_time); // Needs fixing
+    void splitCSVLine(const std::string& line, std::string tokens[], int max_tokens); // Needs fixing
     int findPlayerIndex(int player_id);
-    double parseScore(const std::string& score_str);
+    double parseScore(const std::string& score_str); // Needs fixing
     void updatePlayerStats(int player_id, bool is_winner, double score);
     void displayMenu_Task4();
 
@@ -312,4 +315,4 @@ private:
     int next_match_id;
 };
 
-#endif // ESPORTSCHAMPIONSHIP_HPP
+#endif
